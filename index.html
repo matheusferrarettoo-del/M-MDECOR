@@ -54,7 +54,7 @@
 <header>
   <div class="wrap" style="padding:0 14px;">
     <h1>Sistema de Precificação MDF + Laser</h1>
-    <p>Baseado na sua planilha (Madeiras + Parâmetros + Simulador). Salva no navegador (localStorage) e permite sincronizar com Supabase.</p>
+    <p>Baseado na sua planilha (Madeiras + Parâmetros + Simulador). Funciona no navegador e pode salvar Produtos no Supabase (banco de dados online).</p>
   </div>
 </header>
 
@@ -253,7 +253,7 @@
   <section id="tab-prod" class="hide">
     <div class="card">
       <h2>Produtos calculados</h2>
-      <div class="muted">Salve aqui os produtos que você já calculou no Simulador. Tudo fica armazenado no seu navegador (localStorage).</div>
+      <div class="muted">Salve aqui os produtos que você já calculou no Simulador. Produtos são salvos no banco de dados (Supabase) e ficam disponíveis online.</div>
 
       <div class="btnbar" style="margin-top:12px;">
         <button class="btn danger" id="btnLimparProdutos">Limpar lista</button>
@@ -312,17 +312,6 @@
           <button class="btn primary" id="btnImport">Importar JSON</button>
         </div>
       </div>
-
-      <div class="card">
-        <h2>Sincronização em nuvem (Supabase)</h2>
-        <div class="muted">Use para gravar/carregar os dados do sistema em banco na nuvem.</div>
-        <div class="btnbar">
-          <button class="btn accent" id="btnCloudPull">Baixar do banco</button>
-          <button class="btn primary" id="btnCloudPush">Enviar para o banco</button>
-        </div>
-        <div class="note" id="cloudStatus" style="margin-top:10px;">Supabase pronto para uso.</div>
-        <div class="footer">Tabela esperada no Supabase: <b>app_state</b> com colunas <b>id text primary key</b>, <b>payload jsonb</b>, <b>updated_at timestamptz default now()</b>.</div>
-      </div>
     </div>
   </section>
 </div>
@@ -338,13 +327,15 @@
   };
 
   const LS_KEY = "precificacao_mdf_laser_v1";
+
+  // ====== SUPABASE (Produtos no banco, sem login) ======
+  // ATENÇÃO: sem login, a segurança depende do RLS estar DESLIGADO na tabela `products`.
+  // Recomendado: use isso apenas para uso privado ou avance para login/RLS depois.
+  const USE_SUPABASE_PRODUCTS = true;
   const SUPABASE_URL = "https://fzzctmjlotzpuffgjwnl.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_zShwmIz3jL402nIexqX15A_B_C4BRG1";
-  const SUPABASE_TABLE = "app_state";
-  const SUPABASE_ROW_ID = "precificacao_mdf_laser";
-  const supabaseClient = window.supabase?.createClient
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    : null;
+  const supabase = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 
   function loadState() {
     try {
@@ -366,73 +357,6 @@
 
   function saveState() {
     localStorage.setItem(LS_KEY, JSON.stringify(state));
-  }
-
-  function sanitizeState(obj) {
-    return {
-      woods: Array.isArray(obj?.woods) ? obj.woods : structuredClone(DEFAULT_DATA.woods),
-      params: obj?.params ? obj.params : structuredClone(DEFAULT_DATA.params),
-      sim: obj?.sim ? obj.sim : structuredClone(DEFAULT_DATA.sim),
-      products: Array.isArray(obj?.products) ? obj.products : structuredClone(DEFAULT_DATA.products),
-    };
-  }
-
-  function cloudStatus(msg, isError = false) {
-    const node = document.getElementById("cloudStatus");
-    if (!node) return;
-    node.textContent = msg;
-    node.style.borderColor = isError ? "rgba(251,113,133,.55)" : "rgba(96,165,250,.5)";
-    node.style.background = isError ? "rgba(251,113,133,.1)" : "rgba(96,165,250,.08)";
-    node.style.color = isError ? "#fecdd3" : "#dbeafe";
-  }
-
-  async function pushStateToCloud() {
-    if (!supabaseClient) {
-      cloudStatus("Supabase indisponível: biblioteca não carregada.", true);
-      return;
-    }
-    cloudStatus("Enviando dados para o Supabase...");
-    const payload = sanitizeState(state);
-    const { error } = await supabaseClient
-      .from(SUPABASE_TABLE)
-      .upsert({ id: SUPABASE_ROW_ID, payload, updated_at: new Date().toISOString() }, { onConflict: "id" });
-
-    if (error) {
-      cloudStatus("Erro ao enviar para o banco: " + error.message, true);
-      return;
-    }
-    cloudStatus("Dados enviados para o Supabase com sucesso.");
-  }
-
-  async function pullStateFromCloud() {
-    if (!supabaseClient) {
-      cloudStatus("Supabase indisponível: biblioteca não carregada.", true);
-      return;
-    }
-    cloudStatus("Baixando dados do Supabase...");
-    const { data, error } = await supabaseClient
-      .from(SUPABASE_TABLE)
-      .select("payload, updated_at")
-      .eq("id", SUPABASE_ROW_ID)
-      .maybeSingle();
-
-    if (error) {
-      cloudStatus("Erro ao baixar do banco: " + error.message, true);
-      return;
-    }
-    if (!data?.payload) {
-      cloudStatus("Nenhum registro encontrado no banco. Use 'Enviar para o banco' primeiro.", true);
-      return;
-    }
-
-    state = sanitizeState(data.payload);
-    saveState();
-    loadSimInputsFromState();
-    loadParamsUI();
-    renderWoods();
-    renderProducts();
-    calcSim();
-    cloudStatus(`Dados carregados do Supabase (${new Date(data.updated_at).toLocaleString("pt-BR")}).`);
   }
 
   let state = loadState();
@@ -734,8 +658,9 @@
     saveState();
     renderWoods();
     fillSimSelect();
-    calcSim();
   });
+
+
 
   // ====== PRODUTOS (lista de produtos calculados) ======
   const prodBody = document.querySelector("#prodTable tbody");
@@ -751,6 +676,54 @@
     if (!Array.isArray(state.products)) state.products = structuredClone(DEFAULT_DATA.products);
   }
 
+  async function carregarProdutosDoBanco() {
+    if (!USE_SUPABASE_PRODUCTS || !supabase) return;
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar Produtos do banco: " + error.message + "
+
+Confira se a tabela 'products' existe e se o RLS está DESLIGADO.");
+      return;
+    }
+
+    state.products = (data || []).map(row => ({
+      id: row.id,
+      ts: row.created_at,
+      nome: row.nome ?? null,
+      sku: row.sku ?? null,
+      wood: row.wood ?? null,
+      canal: row.canal ?? null,
+      taxaCanal: row.taxa_canal ?? 0,
+      margemUsada: row.margem_usada ?? 0,
+      comp: row.comp ?? null,
+      larg: row.larg ?? null,
+      areaCm2: row.area_cm2 ?? null,
+      pctChapa: row.pct_chapa ?? null,
+      tCorte: row.t_corte ?? 0,
+      tGrav: row.t_grav ?? 0,
+      tMont: row.t_mont ?? 0,
+      custoMdf: row.custo_mdf ?? 0,
+      custoLaser: row.custo_laser ?? 0,
+      custoMao: row.custo_mao ?? 0,
+      overhead: row.overhead ?? 0,
+      embalagem: row.embalagem ?? 0,
+      perdasPct: row.perdas_pct ?? 0,
+      ajustePerdas: row.ajuste_perdas ?? 0,
+      custoBase: row.custo_base ?? 0,
+      custoTotal: row.custo_total ?? 0,
+      preco: row.preco ?? null,
+      lucro: row.lucro ?? null,
+      margemLiq: row.margem_liq ?? null,
+    }));
+
+    renderProducts();
+  }
+
   function renderProducts() {
     ensureProducts();
     if (!prodBody) return;
@@ -763,8 +736,7 @@
       return;
     }
 
-    state.products.slice().reverse().forEach((p, revIdx) => {
-      const idx = state.products.length - 1 - revIdx; // índice real
+    state.products.forEach((p) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${fmtDT(p.ts)}</td>
@@ -784,40 +756,110 @@
         <td class="right">${((Number(p.margemUsada ?? 0))/100).toLocaleString("pt-BR", {style:"percent", maximumFractionDigits:2})}</td>
         <td class="right">${fmtBRL(p.lucro ?? null)}</td>
         <td class="right">${(p.margemLiq == null) ? "—" : fmtPct(p.margemLiq)}</td>
-        <td class="right"><button class="btn danger" data-pdel="${idx}">Excluir</button></td>
+        <td class="right"><button class="btn danger" data-pdel="${p.id || ""}">Excluir</button></td>
       `;
       prodBody.appendChild(tr);
     });
 
     prodBody.querySelectorAll("button[data-pdel]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const i = Number(btn.dataset.pdel);
-        if (!Number.isFinite(i)) return;
-        state.products.splice(i, 1);
-        saveState();
-        renderProducts();
+      btn.addEventListener("click", async () => {
+        const id = (btn.dataset.pdel || "").trim();
+        if (!id) return alert("Sem ID para excluir. Recarregue a lista.");
+        if (!confirm("Excluir este produto do banco?")) return;
+
+        if (USE_SUPABASE_PRODUCTS && supabase) {
+          const { error } = await supabase.from("products").delete().eq("id", id);
+          if (error) return alert("Erro ao excluir: " + error.message);
+          await carregarProdutosDoBanco();
+        } else {
+          state.products = state.products.filter(x => x.id !== id);
+          saveState();
+          renderProducts();
+        }
       });
     });
   }
 
-  function saveCurrentAsProduct() {
+  async function salvarProdutoAtual() {
     ensureProducts();
     if (!lastCalc) return alert("Recalcule o Simulador antes de salvar.");
-    // Salva um snapshot do cálculo + nome/sku (do simulador)
+
     const payload = structuredClone(lastCalc);
     payload.nome = (el.nome?.value ?? "").trim() || payload.nome || null;
     payload.sku = (el.sku?.value ?? "").trim() || payload.sku || null;
 
-    state.products.push(payload);
-    saveState();
-    renderProducts();
-    alert("Produto salvo na aba Produtos!");
+    if (!USE_SUPABASE_PRODUCTS || !supabase) {
+      payload.id = crypto?.randomUUID?.() || String(Date.now());
+      state.products.push(payload);
+      saveState();
+      renderProducts();
+      return alert("Produto salvo localmente (sem Supabase).");
+    }
+
+    const row = {
+      nome: payload.nome,
+      sku: payload.sku,
+      wood: payload.wood,
+      canal: payload.canal,
+
+      taxa_canal: payload.taxaCanal,
+      margem_usada: payload.margemUsada,
+
+      comp: payload.comp,
+      larg: payload.larg,
+      area_cm2: payload.areaCm2,
+      pct_chapa: payload.pctChapa,
+
+      t_corte: payload.tCorte,
+      t_grav: payload.tGrav,
+      t_mont: payload.tMont,
+
+      custo_mdf: payload.custoMdf,
+      custo_laser: payload.custoLaser,
+      custo_mao: payload.custoMao,
+      overhead: payload.overhead,
+      embalagem: payload.embalagem,
+      perdas_pct: payload.perdasPct,
+      ajuste_perdas: payload.ajustePerdas,
+
+      custo_base: payload.custoBase,
+      custo_total: payload.custoTotal,
+      preco: payload.preco,
+      lucro: payload.lucro,
+      margem_liq: payload.margemLiq,
+    };
+
+    const { error } = await supabase.from("products").insert(row);
+    if (error) {
+      console.error(error);
+      return alert("Erro ao salvar no banco: " + error.message + "
+
+Confira se a tabela 'products' existe e se o RLS está DESLIGADO.");
+    }
+
+    alert("Produto salvo no banco (Supabase)!");
+    await carregarProdutosDoBanco();
   }
 
-  document.getElementById("btnSalvarProduto").addEventListener("click", saveCurrentAsProduct);
+  document.getElementById("btnSalvarProduto").addEventListener("click", salvarProdutoAtual);
 
-  document.getElementById("btnLimparProdutos").addEventListener("click", () => {
-    ensureProducts();
+  document.getElementById("btnLimparProdutos").addEventListener("click", async () => {
+    if (!confirm("Tem certeza que deseja apagar TODOS os produtos?")) return;
+
+    if (USE_SUPABASE_PRODUCTS && supabase) {
+      const { error } = await supabase
+        .from("products")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+      if (error) return alert("Erro ao limpar: " + error.message);
+      await carregarProdutosDoBanco();
+    } else {
+      state.products = [];
+      saveState();
+      renderProducts();
+    }
+  });
+
     if (!confirm("Tem certeza que deseja apagar TODOS os produtos salvos?")) return;
     state.products = [];
     saveState();
@@ -889,6 +931,7 @@
       loadParamsUI();
       renderWoods();
       renderProducts();
+      carregarProdutosDoBanco();
       calcSim();
       alert("Importado com sucesso!");
     } catch(e) {
@@ -904,11 +947,9 @@
     loadParamsUI();
     renderWoods();
     renderProducts();
+    carregarProdutosDoBanco();
     calcSim();
   });
-
-  document.getElementById("btnCloudPush").addEventListener("click", pushStateToCloud);
-  document.getElementById("btnCloudPull").addEventListener("click", pullStateFromCloud);
 
   // ====== INIT ======
   loadSimInputsFromState();
