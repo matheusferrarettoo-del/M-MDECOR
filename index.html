@@ -334,7 +334,7 @@
   const USE_SUPABASE_PRODUCTS = true;
   const SUPABASE_URL = "https://fzzctmjlotzpuffgjwnl.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_zShwmIz3jL402nIexqX15A_B_C4BRG1";
-  const supabase = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const supabaseClient = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 
   function loadState() {
@@ -677,8 +677,8 @@
   }
 
   async function carregarProdutosDoBanco() {
-    if (!USE_SUPABASE_PRODUCTS || !supabase) return;
-    const { data, error } = await supabase
+    if (!USE_SUPABASE_PRODUCTS || !supabaseClient) return;
+    const { data, error } = await supabaseClient
       .from("products")
       .select("*")
       .order("created_at", { ascending: false });
@@ -765,8 +765,8 @@
         if (!id) return alert("Sem ID para excluir. Recarregue a lista.");
         if (!confirm("Excluir este produto do banco?")) return;
 
-        if (USE_SUPABASE_PRODUCTS && supabase) {
-          const { error } = await supabase.from("products").delete().eq("id", id);
+        if (USE_SUPABASE_PRODUCTS && supabaseClient) {
+          const { error } = await supabaseClient.from("products").delete().eq("id", id);
           if (error) return alert("Erro ao excluir: " + error.message);
           await carregarProdutosDoBanco();
         } else {
@@ -786,7 +786,7 @@
     payload.nome = (el.nome?.value ?? "").trim() || payload.nome || null;
     payload.sku = (el.sku?.value ?? "").trim() || payload.sku || null;
 
-    if (!USE_SUPABASE_PRODUCTS || !supabase) {
+    if (!USE_SUPABASE_PRODUCTS || !supabaseClient) {
       payload.id = crypto?.randomUUID?.() || String(Date.now());
       state.products.push(payload);
       saveState();
@@ -827,7 +827,7 @@
       margem_liq: payload.margemLiq,
     };
 
-    const { error } = await supabase.from("products").insert(row);
+    const { error } = await supabaseClient.from("products").insert(row);
     if (error) {
       console.error(error);
       return alert("Erro ao salvar no banco: " + error.message + "\n\nConfira se a tabela 'products' existe e se o RLS está DESLIGADO.");
@@ -842,8 +842,8 @@
   document.getElementById("btnLimparProdutos").addEventListener("click", async () => {
     if (!confirm("Tem certeza que deseja apagar TODOS os produtos?")) return;
 
-    if (USE_SUPABASE_PRODUCTS && supabase) {
-      const { error } = await supabase
+    if (USE_SUPABASE_PRODUCTS && supabaseClient) {
+      const { error } = await supabaseClient
         .from("products")
         .delete()
         .neq("id", "00000000-0000-0000-0000-000000000000");
