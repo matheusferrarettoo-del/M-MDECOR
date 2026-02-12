@@ -54,7 +54,7 @@
 <header>
   <div class="wrap" style="padding:0 14px;">
     <h1>Sistema de Precificação MDF + Laser</h1>
-    <p>Baseado na sua planilha (Madeiras + Parâmetros + Simulador). Tudo funciona offline e salva no seu navegador (localStorage).</p>
+    <p>Baseado na sua planilha (Madeiras + Parâmetros + Simulador). Salva no navegador (localStorage) e permite sincronizar com Supabase.</p>
   </div>
 </header>
 
@@ -312,10 +312,22 @@
           <button class="btn primary" id="btnImport">Importar JSON</button>
         </div>
       </div>
+
+      <div class="card">
+        <h2>Sincronização em nuvem (Supabase)</h2>
+        <div class="muted">Use para gravar/carregar os dados do sistema em banco na nuvem.</div>
+        <div class="btnbar">
+          <button class="btn accent" id="btnCloudPull">Baixar do banco</button>
+          <button class="btn primary" id="btnCloudPush">Enviar para o banco</button>
+        </div>
+        <div class="note" id="cloudStatus" style="margin-top:10px;">Supabase pronto para uso.</div>
+        <div class="footer">Tabela esperada no Supabase: <b>app_state</b> com colunas <b>id text primary key</b>, <b>payload jsonb</b>, <b>updated_at timestamptz default now()</b>.</div>
+      </div>
     </div>
   </section>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // ====== DADOS INICIAIS (da planilha) ======
   const DEFAULT_DATA = {
@@ -326,6 +338,13 @@
   };
 
   const LS_KEY = "precificacao_mdf_laser_v1";
+  const SUPABASE_URL = "https://fzzctmjlotzpuffgjwnl.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_zShwmIz3jL402nIexqX15A_B_C4BRG1";
+  const SUPABASE_TABLE = "app_state";
+  const SUPABASE_ROW_ID = "precificacao_mdf_laser";
+  const supabaseClient = window.supabase?.createClient
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
 
   function loadState() {
     try {
@@ -347,6 +366,73 @@
 
   function saveState() {
     localStorage.setItem(LS_KEY, JSON.stringify(state));
+  }
+
+  function sanitizeState(obj) {
+    return {
+      woods: Array.isArray(obj?.woods) ? obj.woods : structuredClone(DEFAULT_DATA.woods),
+      params: obj?.params ? obj.params : structuredClone(DEFAULT_DATA.params),
+      sim: obj?.sim ? obj.sim : structuredClone(DEFAULT_DATA.sim),
+      products: Array.isArray(obj?.products) ? obj.products : structuredClone(DEFAULT_DATA.products),
+    };
+  }
+
+  function cloudStatus(msg, isError = false) {
+    const node = document.getElementById("cloudStatus");
+    if (!node) return;
+    node.textContent = msg;
+    node.style.borderColor = isError ? "rgba(251,113,133,.55)" : "rgba(96,165,250,.5)";
+    node.style.background = isError ? "rgba(251,113,133,.1)" : "rgba(96,165,250,.08)";
+    node.style.color = isError ? "#fecdd3" : "#dbeafe";
+  }
+
+  async function pushStateToCloud() {
+    if (!supabaseClient) {
+      cloudStatus("Supabase indisponível: biblioteca não carregada.", true);
+      return;
+    }
+    cloudStatus("Enviando dados para o Supabase...");
+    const payload = sanitizeState(state);
+    const { error } = await supabaseClient
+      .from(SUPABASE_TABLE)
+      .upsert({ id: SUPABASE_ROW_ID, payload, updated_at: new Date().toISOString() }, { onConflict: "id" });
+
+    if (error) {
+      cloudStatus("Erro ao enviar para o banco: " + error.message, true);
+      return;
+    }
+    cloudStatus("Dados enviados para o Supabase com sucesso.");
+  }
+
+  async function pullStateFromCloud() {
+    if (!supabaseClient) {
+      cloudStatus("Supabase indisponível: biblioteca não carregada.", true);
+      return;
+    }
+    cloudStatus("Baixando dados do Supabase...");
+    const { data, error } = await supabaseClient
+      .from(SUPABASE_TABLE)
+      .select("payload, updated_at")
+      .eq("id", SUPABASE_ROW_ID)
+      .maybeSingle();
+
+    if (error) {
+      cloudStatus("Erro ao baixar do banco: " + error.message, true);
+      return;
+    }
+    if (!data?.payload) {
+      cloudStatus("Nenhum registro encontrado no banco. Use 'Enviar para o banco' primeiro.", true);
+      return;
+    }
+
+    state = sanitizeState(data.payload);
+    saveState();
+    loadSimInputsFromState();
+    loadParamsUI();
+    renderWoods();
+    renderProducts();
+    calcSim();
+    cloudStatus(`Dados carregados do Supabase (${new Date(data.updated_at).toLocaleString("pt-BR")}).`);
   }
 
   let state = loadState();
@@ -648,6 +734,8 @@
     saveState();
     renderWoods();
     fillSimSelect();
+    calcSim();
+  });
 
   // ====== PRODUTOS (lista de produtos calculados) ======
   const prodBody = document.querySelector("#prodTable tbody");
@@ -736,8 +824,6 @@
     renderProducts();
   });
 
-  });
-
   // ====== PARAMETROS ======
   function loadParamsUI() {
     const p = state.params;
@@ -820,6 +906,9 @@
     renderProducts();
     calcSim();
   });
+
+  document.getElementById("btnCloudPush").addEventListener("click", pushStateToCloud);
+  document.getElementById("btnCloudPull").addEventListener("click", pullStateFromCloud);
 
   // ====== INIT ======
   loadSimInputsFromState();
