@@ -685,9 +685,7 @@
 
     if (error) {
       console.error(error);
-      alert("Erro ao carregar Produtos do banco: " + error.message + "
-
-Confira se a tabela 'products' existe e se o RLS está DESLIGADO.");
+      alert("Erro ao carregar Produtos do banco: " + error.message + "\n\nConfira se a tabela 'products' existe e se o RLS está DESLIGADO.");
       return;
     }
 
@@ -832,9 +830,7 @@ Confira se a tabela 'products' existe e se o RLS está DESLIGADO.");
     const { error } = await supabase.from("products").insert(row);
     if (error) {
       console.error(error);
-      return alert("Erro ao salvar no banco: " + error.message + "
-
-Confira se a tabela 'products' existe e se o RLS está DESLIGADO.");
+      return alert("Erro ao salvar no banco: " + error.message + "\n\nConfira se a tabela 'products' existe e se o RLS está DESLIGADO.");
     }
 
     alert("Produto salvo no banco (Supabase)!");
@@ -858,12 +854,6 @@ Confira se a tabela 'products' existe e se o RLS está DESLIGADO.");
       saveState();
       renderProducts();
     }
-  });
-
-    if (!confirm("Tem certeza que deseja apagar TODOS os produtos salvos?")) return;
-    state.products = [];
-    saveState();
-    renderProducts();
   });
 
   // ====== PARAMETROS ======
