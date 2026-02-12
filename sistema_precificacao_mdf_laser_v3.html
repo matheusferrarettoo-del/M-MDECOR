@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema de Precificação MDF + Laser</title>
+  <style>
+    :root {
+      --bg:#0b1020; --card:#111a33; --muted:#96a0c6; --text:#eef2ff;
+      --accent:#60a5fa; --accent2:#34d399; --danger:#fb7185; --border:#223059;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(180deg,#070a14, #0b1020); color:var(--text);}
+    header{padding:18px 20px; border-bottom:1px solid var(--border); position:sticky; top:0; backdrop-filter: blur(10px); background:rgba(7,10,20,.75); z-index:10;}
+    header h1{margin:0;font-size:18px;font-weight:700; letter-spacing:.2px}
+    header p{margin:6px 0 0; color:var(--muted); font-size:13px}
+    .wrap{max-width:1100px;margin:0 auto; padding:18px 14px 48px;}
+    .tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+    .tab{border:1px solid var(--border); background:transparent; color:var(--text); padding:10px 12px; border-radius:12px; cursor:pointer; font-weight:600; font-size:13px;}
+    .tab.active{background:rgba(96,165,250,.18); border-color:rgba(96,165,250,.4);}
+    .grid{display:grid; grid-template-columns: 1.1fr .9fr; gap:14px; align-items:start;}
+    @media (max-width: 920px){ .grid{grid-template-columns: 1fr;} }
+    .card{background:rgba(17,26,51,.85); border:1px solid var(--border); border-radius:18px; padding:14px; box-shadow:0 12px 30px rgba(0,0,0,.25);}
+    .card h2{margin:0 0 10px; font-size:15px}
+    .muted{color:var(--muted); font-size:12px; line-height:1.35}
+    .row{display:grid; grid-template-columns: 1fr 200px; gap:10px; margin:10px 0; align-items:center;}
+    @media (max-width: 520px){ .row{grid-template-columns:1fr;} }
+    label{font-size:13px; font-weight:600}
+    input, select, textarea{width:100%; padding:10px 10px; border-radius:12px; border:1px solid var(--border); background:#0a1126; color:var(--text); outline:none;}
+    input:focus, select:focus, textarea:focus{border-color: rgba(96,165,250,.65); box-shadow:0 0 0 4px rgba(96,165,250,.15);}
+    .btnbar{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
+    button.btn{padding:10px 12px; border-radius:12px; border:1px solid var(--border); cursor:pointer; font-weight:700; background:#0a1126; color:var(--text);}
+    button.btn.primary{background:rgba(52,211,153,.14); border-color:rgba(52,211,153,.45);}
+    button.btn.accent{background:rgba(96,165,250,.14); border-color:rgba(96,165,250,.45);}
+    button.btn.danger{background:rgba(251,113,133,.12); border-color:rgba(251,113,133,.45);}
+    .kpis{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:10px;}
+    @media (max-width: 520px){ .kpis{grid-template-columns:1fr;} }
+    .kpi{padding:12px; border-radius:16px; border:1px solid var(--border); background:rgba(10,17,38,.6);}
+    .kpi .t{font-size:12px; color:var(--muted);}
+    .kpi .v{font-size:20px; font-weight:800; margin-top:6px; letter-spacing:.2px}
+    .table{width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border-radius:16px; border:1px solid var(--border);}
+    .table th,.table td{padding:10px; font-size:13px; border-bottom:1px solid var(--border);}
+    .table th{text-align:left; color:var(--muted); background:rgba(10,17,38,.6); font-weight:700}
+    .table tr:last-child td{border-bottom:none}
+    .pill{display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); color:var(--muted);}
+    .right{text-align:right}
+    .hide{display:none}
+    .note{padding:10px 12px; border:1px dashed rgba(96,165,250,.5); border-radius:14px; background:rgba(96,165,250,.08); color:#dbeafe; font-size:12px; line-height:1.4;}
+    .footer{margin-top:16px; color:var(--muted); font-size:12px}
+    a{color:#93c5fd}
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap" style="padding:0 14px;">
+    <h1>Sistema de Precificação MDF + Laser</h1>
+    <p>Baseado na sua planilha (Madeiras + Parâmetros + Simulador). Tudo funciona offline e salva no seu navegador (localStorage).</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab active" data-tab="sim">Simulador</button>
+    <button class="tab" data-tab="madeiras">Madeiras</button>
+    <button class="tab" data-tab="param">Parâmetros</button>
+    <button class="tab" data-tab="prod">Produtos</button>
+    <button class="tab" data-tab="backup">Backup</button>
+  </div>
+
+  <!-- SIMULADOR -->
+  <section id="tab-sim">
+    <div class="grid">
+      <div class="card">
+        <h2>Simulador (1 produto)</h2>
+        <div class="muted">Preencha os campos. Use <b>Comprimento × Largura</b> OU <b>% da chapa</b>. Se preencher os dois, o sistema usa <b>% da chapa</b>.</div>
+
+        <div class="row">
+          <label>Nome do produto</label>
+          <input id="sim_nome" type="text" placeholder="Ex.: Display Alga 60cm" />
+        </div>
+
+        <div class="row">
+          <label>SKU</label>
+          <input id="sim_sku" type="text" placeholder="Ex.: ALG-60-6MM" />
+        </div>
+
+        <div class="row">
+          <label>Madeira selecionada</label>
+          <select id="sim_wood"></select>
+        </div>
+
+        <div class="row">
+          <label>Comprimento da peça (cm)</label>
+          <input id="sim_comp" type="number" step="0.01" placeholder="Ex.: 20" />
+        </div>
+
+        <div class="row">
+          <label>Largura da peça (cm)</label>
+          <input id="sim_larg" type="number" step="0.01" placeholder="Ex.: 15" />
+        </div>
+
+        <div class="row">
+          <label>% da chapa (opcional)</label>
+          <input id="sim_pct" type="number" step="0.01" placeholder="Ex.: 12,5" />
+        </div>
+
+        <div class="row">
+          <label>Tempo de corte (min)</label>
+          <input id="sim_corte" type="number" step="0.01" />
+        </div>
+
+        <div class="row">
+          <label>Tempo de gravação (min) (opcional)</label>
+          <input id="sim_grav" type="number" step="0.01" />
+        </div>
+
+        <div class="row">
+          <label>Tempo de montagem/acabamento (min)</label>
+          <input id="sim_mont" type="number" step="0.01" />
+        </div>
+
+        <div class="row">
+          <label>Canal</label>
+          <select id="sim_canal">
+            <option>Shopee</option>
+            <option>Mercado Livre</option>
+            <option>TikTok</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label>Margem desejada (%) (opcional)</label>
+          <input id="sim_margem" type="number" step="0.01" placeholder="Se vazio, usa a margem padrão em Parâmetros" />
+        </div>
+
+        <div class="btnbar">
+          <button class="btn accent" id="btnRecalcular">Recalcular</button>
+          <button class="btn primary" id="btnSalvarProduto">Salvar produto</button>
+          <button class="btn" id="btnLimpar">Limpar campos</button>
+        </div>
+
+        <div class="footer">Dica: edite Madeiras/Parâmetros para refletir sua operação. O cálculo replica a lógica da planilha.</div>
+      </div>
+
+      <div class="card">
+        <h2>Resultado</h2>
+        <div class="note" id="noteWood">—</div>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="t">Custo total (R$)</div>
+            <div class="v" id="k_custo_total">—</div>
+          </div>
+          <div class="kpi">
+            <div class="t">Preço sugerido (R$)</div>
+            <div class="v" id="k_preco">—</div>
+          </div>
+          <div class="kpi">
+            <div class="t">Lucro líquido estimado (R$)</div>
+            <div class="v" id="k_lucro">—</div>
+          </div>
+          <div class="kpi">
+            <div class="t">Margem líquida estimada</div>
+            <div class="v" id="k_margem_liq">—</div>
+          </div>
+        </div>
+
+        <h2 style="margin-top:14px;">Detalhamento</h2>
+        <table class="table">
+          <tbody>
+            <tr><td>Custo MDF da peça</td><td class="right" id="d_mdf">—</td></tr>
+            <tr><td>Custo laser</td><td class="right" id="d_laser">—</td></tr>
+            <tr><td>Custo mão de obra</td><td class="right" id="d_mao">—</td></tr>
+            <tr><td>Overhead</td><td class="right" id="d_over">—</td></tr>
+            <tr><td>Embalagem</td><td class="right" id="d_emb">—</td></tr>
+            <tr><td><b>Custo base</b></td><td class="right" id="d_base">—</td></tr>
+            <tr><td>Ajuste perdas/retrabalho</td><td class="right" id="d_perdas">—</td></tr>
+            <tr><td><b>Taxa do canal</b></td><td class="right" id="d_taxa">—</td></tr>
+            <tr><td><b>Margem usada</b></td><td class="right" id="d_margem_used">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- MADEIRAS -->
+  <section id="tab-madeiras" class="hide">
+    <div class="card">
+      <h2>Cadastro de Madeiras</h2>
+      <div class="muted">Você pode adicionar/editar/remover materiais. Isso impacta o Simulador.</div>
+
+      <div class="btnbar">
+        <button class="btn primary" id="btnAddWood">Adicionar madeira</button>
+        <span class="pill">Tudo salva automaticamente</span>
+      </div>
+
+      <div style="margin-top:12px; overflow:auto;">
+        <table class="table" id="woodsTable">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th class="right">Esp. (mm)</th>
+              <th class="right">Larg. (cm)</th>
+              <th class="right">Alt. (cm)</th>
+              <th class="right">Preço chapa (R$)</th>
+              <th class="right">Área chapa (m²)</th>
+              <th class="right">Custo (R$/m²)</th>
+              <th>Obs.</th>
+              <th class="right">Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="footer">Cálculos automáticos: Área (m²) = (largura×altura)/10000; Custo/m² = preço/área.</div>
+    </div>
+  </section>
+
+  <!-- PARAMETROS -->
+  <section id="tab-param" class="hide">
+    <div class="grid">
+      <div class="card">
+        <h2>Parâmetros Gerais</h2>
+
+        <div class="row"><label>Custo hora laser (R$/h)</label><input id="p_laser" type="number" step="0.01" /></div>
+        <div class="row"><label>Custo mão de obra (R$/h)</label><input id="p_mao" type="number" step="0.01" /></div>
+        <div class="row"><label>Overhead por peça (R$)</label><input id="p_over" type="number" step="0.01" /></div>
+        <div class="row"><label>Embalagem por peça (R$)</label><input id="p_emb" type="number" step="0.01" /></div>
+        <div class="row"><label>Retrabalho/perdas (%)</label><input id="p_perdas" type="number" step="0.01" /></div>
+        <div class="row"><label>Margem padrão (líquida) (%)</label><input id="p_margem" type="number" step="0.01" /></div>
+
+        <div class="btnbar">
+          <button class="btn accent" id="btnSalvarParams">Salvar parâmetros</button>
+        </div>
+
+        <div class="footer">A margem padrão só é usada quando a Margem do Simulador estiver vazia.</div>
+      </div>
+
+      <div class="card">
+        <h2>Canais & Taxas</h2>
+        <div class="row"><label>Shopee - Taxa (%)</label><input id="p_tax_shopee" type="number" step="0.01" /></div>
+        <div class="row"><label>Mercado Livre - Taxa (%)</label><input id="p_tax_ml" type="number" step="0.01" /></div>
+        <div class="row"><label>TikTok - Taxa (%)</label><input id="p_tax_tt" type="number" step="0.01" /></div>
+
+        <div class="note">Dica: se o seu canal tiver taxa fixa + variável, você pode embutir a taxa fixa no Overhead/Embalagem e deixar aqui só a parte percentual.</div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- PRODUTOS -->
+  <section id="tab-prod" class="hide">
+    <div class="card">
+      <h2>Produtos calculados</h2>
+      <div class="muted">Salve aqui os produtos que você já calculou no Simulador. Tudo fica armazenado no seu navegador (localStorage).</div>
+
+      <div class="btnbar" style="margin-top:12px;">
+        <button class="btn danger" id="btnLimparProdutos">Limpar lista</button>
+        <span class="pill">Dica: use o botão <b>Salvar produto</b> no Simulador</span>
+      </div>
+
+      <div style="margin-top:12px; overflow:auto;">
+        <table class="table" id="prodTable">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Nome</th>
+              <th>SKU</th>
+              <th>Madeira</th>
+              <th class="right">MDF (R$)</th>
+              <th class="right">Laser (R$)</th>
+              <th class="right">Mão de obra (R$)</th>
+              <th class="right">Overhead (R$)</th>
+              <th class="right">Embalagem (R$)</th>
+              <th class="right">Perdas (R$)</th>
+              <th class="right"><b>Custo total (R$)</b></th>
+              <th class="right"><b>Preço (R$)</b></th>
+              <th>Canal</th>
+              <th class="right">Taxa</th>
+              <th class="right">Margem</th>
+              <th class="right">Lucro (R$)</th>
+              <th class="right">Margem liq.</th>
+              <th class="right">Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="footer">Os valores salvos são os mesmos do detalhamento do Simulador: MDF, Laser (tempo de corte + gravação), mão de obra (montagem/acabamento), overhead, embalagem e ajuste de perdas.</div>
+    </div>
+  </section>
+
+  <!-- BACKUP -->
+  <section id="tab-backup" class="hide">
+    <div class="grid">
+      <div class="card">
+        <h2>Exportar</h2>
+        <div class="muted">Gera um JSON com Madeiras + Parâmetros + últimas entradas do Simulador.</div>
+        <div class="btnbar">
+          <button class="btn accent" id="btnExport">Baixar JSON</button>
+          <button class="btn" id="btnReset">Resetar para padrão da planilha</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Importar</h2>
+        <div class="muted">Cole um JSON exportado aqui para restaurar.</div>
+        <textarea id="importBox" rows="10" placeholder='Cole o JSON aqui'></textarea>
+        <div class="btnbar">
+          <button class="btn primary" id="btnImport">Importar JSON</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // ====== DADOS INICIAIS (da planilha) ======
+  const DEFAULT_DATA = {
+    woods: [{"name": "MDF Cru 3mm", "thickness": 3, "width": 140, "height": 90, "price": 60, "obs": null}, {"name": "MDF Cru 6mm", "thickness": 6, "width": 140, "height": 90, "price": 130, "obs": null}, {"name": "MDF Branco 3mm", "thickness": 3, "width": 140, "height": 90, "price": 145, "obs": null}],
+    params: {"custoHoraLaser": 30, "custoMaoObra": 18, "overhead": 1.5, "embalagem": 1.5, "perdasPct": 5, "taxas": {"Shopee": 20, "Mercado Livre": 16, "TikTok": 12}, "margemDesejada": 30},
+    sim: {"wood": "MDF Cru 6mm", "comprimento": 80, "largura": 60, "areaCm2": 4800, "pctChapa": null, "tempoCorte": 10, "tempoGrav": 0, "tempoMont": 5, "canal": "Shopee", "margem": null, "nome": null, "sku": null},
+    products: []
+  };
+
+  const LS_KEY = "precificacao_mdf_laser_v1";
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return structuredClone(DEFAULT_DATA);
+      const obj = JSON.parse(raw);
+      // merge leve (para compatibilidade futura)
+      return {
+        woods: Array.isArray(obj.woods) ? obj.woods : structuredClone(DEFAULT_DATA.woods),
+        params: obj.params ? obj.params : structuredClone(DEFAULT_DATA.params),
+        sim: obj.sim ? obj.sim : structuredClone(DEFAULT_DATA.sim),
+        products: Array.isArray(obj.products) ? obj.products : structuredClone(DEFAULT_DATA.products),
+      };
+    } catch(e) {
+      console.warn("Falha ao ler localStorage:", e);
+      return structuredClone(DEFAULT_DATA);
+    }
+  }
+
+  function saveState() {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  }
+
+  let state = loadState();
+  let lastCalc = null;
+
+  // ====== UI: Tabs ======
+  const tabButtons = document.querySelectorAll(".tab");
+  tabButtons.forEach(btn => btn.addEventListener("click", () => {
+    tabButtons.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const t = btn.dataset.tab;
+    document.querySelectorAll("section[id^='tab-']").forEach(s => s.classList.add("hide"));
+    document.getElementById("tab-" + t).classList.remove("hide");
+  }));
+
+  // ====== Helpers ======
+  function n(v) {
+    const x = Number(v);
+    return Number.isFinite(x) ? x : null;
+  }
+  function fmtBRL(v) {
+    if (v === null || v === "" || !Number.isFinite(v)) return "—";
+    return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  }
+  function fmtPct(v) {
+    if (v === null || v === "" || !Number.isFinite(v)) return "—";
+    return (v*100).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + "%";
+  }
+  function clampNonNeg(x) {
+    if (x === null) return null;
+    return Math.max(0, x);
+  }
+
+  function woodComputed(w) {
+    const width = n(w.width), height = n(w.height), price = n(w.price);
+    const area = (width && height) ? (width * height)/10000 : null; // m²
+    const costm2 = (price && area) ? (price/area) : null;
+    return {...w, area, costm2};
+  }
+
+  function getWoodByName(name) {
+    return state.woods.find(w => w.name === name) || state.woods[0] || null;
+  }
+
+  // ====== SIMULADOR ======
+  const el = {
+    nome: document.getElementById("sim_nome"),
+    sku: document.getElementById("sim_sku"),
+    wood: document.getElementById("sim_wood"),
+    comp: document.getElementById("sim_comp"),
+    larg: document.getElementById("sim_larg"),
+    pct: document.getElementById("sim_pct"),
+    corte: document.getElementById("sim_corte"),
+    grav: document.getElementById("sim_grav"),
+    mont: document.getElementById("sim_mont"),
+    canal: document.getElementById("sim_canal"),
+    margem: document.getElementById("sim_margem"),
+  };
+
+  function fillSimSelect() {
+    el.wood.innerHTML = "";
+    state.woods.forEach(w => {
+      const opt = document.createElement("option");
+      opt.value = w.name;
+      opt.textContent = w.name;
+      el.wood.appendChild(opt);
+    });
+  }
+
+  function loadSimInputsFromState() {
+    fillSimSelect();
+    el.nome.value = state.sim.nome ?? "";
+    el.sku.value = state.sim.sku ?? "";
+    el.wood.value = state.sim.wood || (state.woods[0]?.name ?? "");
+    el.comp.value = state.sim.comprimento ?? "";
+    el.larg.value = state.sim.largura ?? "";
+    el.pct.value = state.sim.pctChapa ?? "";
+    el.corte.value = state.sim.tempoCorte ?? "";
+    el.grav.value = state.sim.tempoGrav ?? "";
+    el.mont.value = state.sim.tempoMont ?? "";
+    el.canal.value = state.sim.canal ?? "Shopee";
+    el.margem.value = state.sim.margem ?? "";
+  }
+
+  function saveSimToState() {
+    const prev = state.sim || {};
+    const compVal = (el.comp.value === "" ? null : n(el.comp.value));
+    const largVal = (el.larg.value === "" ? null : n(el.larg.value));
+    const derivedArea = (compVal !== null && largVal !== null) ? (compVal * largVal) : null;
+
+    state.sim = {
+      nome: (el.nome?.value ?? "").trim() || null,
+      sku: (el.sku?.value ?? "").trim() || null,
+      wood: el.wood.value,
+      comprimento: compVal,
+      largura: largVal,
+      // compatibilidade: mantemos areaCm2 para cálculos/backup.
+      // - Se tiver comprimento e largura, areaCm2 = comprimento×largura
+      // - Se ambos estiverem vazios, preserva o valor antigo (para não "quebrar" quem já tinha salvo área)
+      // - Se só um deles for preenchido, areaCm2 fica null até completar os dois
+      areaCm2: (derivedArea !== null) ? derivedArea : ((compVal === null && largVal === null) ? (n(prev.areaCm2) ?? null) : null),
+      pctChapa: el.pct.value === "" ? null : n(el.pct.value),
+      tempoCorte: el.corte.value === "" ? null : n(el.corte.value),
+      tempoGrav: el.grav.value === "" ? null : n(el.grav.value),
+      tempoMont: el.mont.value === "" ? null : n(el.mont.value),
+      canal: el.canal.value,
+      margem: el.margem.value === "" ? null : n(el.margem.value),
+    };
+    saveState();
+  }
+
+
+  function calcSim() {
+    saveSimToState();
+    const w0 = getWoodByName(state.sim.wood);
+    const w = w0 ? woodComputed(w0) : null;
+
+    // inputs
+    const comp = clampNonNeg(n(state.sim.comprimento));
+    const larg = clampNonNeg(n(state.sim.largura));
+    // Área calculada a partir de comprimento×largura. Se não tiver, usa areaCm2 antigo (compatibilidade).
+    const areaCm2 = (comp !== null && comp !== 0 && larg !== null && larg !== 0)
+      ? (comp * larg)
+      : clampNonNeg(n(state.sim.areaCm2));
+    const pctChapa = clampNonNeg(n(state.sim.pctChapa));
+    const tCorte = clampNonNeg(n(state.sim.tempoCorte)) ?? 0;
+    const tGrav  = clampNonNeg(n(state.sim.tempoGrav)) ?? 0;
+    const tMont  = clampNonNeg(n(state.sim.tempoMont)) ?? 0;
+
+    const canal = state.sim.canal || "Shopee";
+
+    // params
+    const p = state.params;
+    const custoHoraLaser = n(p.custoHoraLaser) ?? 0;
+    const custoMaoObra = n(p.custoMaoObra) ?? 0;
+    const overhead = n(p.overhead) ?? 0;
+    const embalagem = n(p.embalagem) ?? 0;
+    const perdasPct = n(p.perdasPct) ?? 0;
+
+    const taxaCanal = n(p.taxas?.[canal]) ?? 0;
+    const margemUsada = (state.sim.margem === null || state.sim.margem === "" || !Number.isFinite(n(state.sim.margem)))
+      ? (n(p.margemDesejada) ?? 0)
+      : (n(state.sim.margem) ?? 0);
+
+    // custo MDF da peça (replica planilha)
+    let custoMdf = null;
+    if (w) {
+      if (pctChapa !== null && pctChapa !== 0) {
+        const price = n(w.price);
+        custoMdf = price !== null ? (price * (pctChapa/100)) : null;
+      } else if (areaCm2 !== null && areaCm2 !== 0) {
+        const costm2 = n(w.costm2);
+        custoMdf = costm2 !== null ? (costm2 * (areaCm2/10000)) : null;
+      } else {
+        custoMdf = 0;
+      }
+    }
+
+    const custoLaser = (custoHoraLaser/60) * (tCorte + tGrav);
+    const custoMao = (custoMaoObra/60) * (tMont);
+    const custoBase = (custoMdf ?? 0) + custoLaser + custoMao + overhead + embalagem;
+    const ajustePerdas = custoBase * (perdasPct/100);
+    const custoTotal = custoBase + ajustePerdas;
+
+    const denom = 1 - (taxaCanal/100) - (margemUsada/100);
+    const preco = (denom > 0) ? (custoTotal / denom) : null;
+
+    const lucro = (preco !== null) ? (preco - custoTotal - (preco*(taxaCanal/100))) : null;
+    const margemLiq = (preco !== null && preco !== 0 && lucro !== null) ? (lucro/preco) : null;
+
+    // snapshot do cálculo atual (para salvar em Produtos)
+    lastCalc = {
+      ts: new Date().toISOString(),
+      nome: state.sim.nome ?? null,
+      sku: state.sim.sku ?? null,
+      wood: w?.name ?? null,
+      canal,
+      taxaCanal,
+      margemUsada,
+      comp, larg, areaCm2, pctChapa,
+      tCorte, tGrav, tMont,
+      custoMdf: (custoMdf ?? 0),
+      custoLaser,
+      custoMao,
+      overhead,
+      embalagem,
+      perdasPct,
+      ajustePerdas,
+      custoBase,
+      custoTotal,
+      preco,
+      lucro,
+      margemLiq,
+    };
+
+    // render
+    const note = document.getElementById("noteWood");
+    if (!w) {
+      note.textContent = "Cadastre uma madeira para usar o simulador.";
+    } else {
+      const area = w.area ? w.area.toLocaleString("pt-BR", {maximumFractionDigits: 4}) : "—";
+      const costm2 = w.costm2 ? fmtBRL(w.costm2) : "—";
+      note.innerHTML = `<b>${w.name}</b> • ${w.thickness ?? "—"}mm • Chapa: ${w.width ?? "—"}×${w.height ?? "—"}cm • Área: ${area} m² • Custo/m²: ${costm2}`;
+    }
+
+    document.getElementById("k_custo_total").textContent = fmtBRL(custoTotal);
+    document.getElementById("k_preco").textContent = fmtBRL(preco);
+    document.getElementById("k_lucro").textContent = fmtBRL(lucro);
+    document.getElementById("k_margem_liq").textContent = (margemLiq === null) ? "—" : fmtPct(margemLiq);
+
+    document.getElementById("d_mdf").textContent = fmtBRL(custoMdf ?? 0);
+    document.getElementById("d_laser").textContent = fmtBRL(custoLaser);
+    document.getElementById("d_mao").textContent = fmtBRL(custoMao);
+    document.getElementById("d_over").textContent = fmtBRL(overhead);
+    document.getElementById("d_emb").textContent = fmtBRL(embalagem);
+    document.getElementById("d_base").textContent = fmtBRL(custoBase);
+    document.getElementById("d_perdas").textContent = fmtBRL(ajustePerdas);
+    document.getElementById("d_taxa").textContent = (taxaCanal/100).toLocaleString("pt-BR", {style:"percent", maximumFractionDigits:2});
+    document.getElementById("d_margem_used").textContent = (margemUsada/100).toLocaleString("pt-BR", {style:"percent", maximumFractionDigits:2});
+  }
+
+  // auto recalcular em mudanças
+  Object.values(el).forEach(x => x.addEventListener("input", calcSim));
+  el.wood.addEventListener("change", calcSim);
+  el.canal.addEventListener("change", calcSim);
+
+  document.getElementById("btnRecalcular").addEventListener("click", calcSim);
+  document.getElementById("btnLimpar").addEventListener("click", () => {
+    el.comp.value = "";
+    el.larg.value = "";
+    el.pct.value = "";
+    el.margem.value = "";
+    // garantir limpeza total (inclui compatibilidade de área antiga)
+    state.sim = {...(state.sim || {}), comprimento: null, largura: null, areaCm2: null};
+    saveSimToState();
+    calcSim();
+  });
+
+  // ====== MADEIRAS CRUD ======
+  const woodsBody = document.querySelector("#woodsTable tbody");
+
+  function renderWoods() {
+    woodsBody.innerHTML = "";
+    state.woods.forEach((w, idx) => {
+      const wc = woodComputed(w);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input data-k="name" data-i="${idx}" value="${(w.name ?? "").replaceAll('"','&quot;')}" /></td>
+        <td class="right"><input data-k="thickness" data-i="${idx}" type="number" step="0.01" value="${w.thickness ?? ""}" /></td>
+        <td class="right"><input data-k="width" data-i="${idx}" type="number" step="0.01" value="${w.width ?? ""}" /></td>
+        <td class="right"><input data-k="height" data-i="${idx}" type="number" step="0.01" value="${w.height ?? ""}" /></td>
+        <td class="right"><input data-k="price" data-i="${idx}" type="number" step="0.01" value="${w.price ?? ""}" /></td>
+        <td class="right">${wc.area ? wc.area.toLocaleString("pt-BR", {maximumFractionDigits:4}) : "—"}</td>
+        <td class="right">${wc.costm2 ? fmtBRL(wc.costm2) : "—"}</td>
+        <td><input data-k="obs" data-i="${idx}" value="${(w.obs ?? "").replaceAll('"','&quot;')}" /></td>
+        <td class="right"><button class="btn danger" data-del="${idx}">Excluir</button></td>
+      `;
+      woodsBody.appendChild(tr);
+    });
+
+    // bind inputs
+    woodsBody.querySelectorAll("input").forEach(inp => {
+      inp.addEventListener("input", () => {
+        const i = Number(inp.dataset.i);
+        const k = inp.dataset.k;
+        if (!Number.isFinite(i)) return;
+        const val = inp.value;
+        // tipos numéricos
+        if (["thickness","width","height","price"].includes(k)) {
+          state.woods[i][k] = val === "" ? null : Number(val);
+        } else {
+          state.woods[i][k] = val === "" ? null : val;
+        }
+        saveState();
+        fillSimSelect();
+        calcSim();
+        renderWoods(); // re-render pra atualizar área/custo
+      });
+    });
+
+    // bind delete
+    woodsBody.querySelectorAll("button[data-del]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const i = Number(btn.dataset.del);
+        state.woods.splice(i,1);
+        if (state.woods.length === 0) {
+          state.woods = structuredClone(DEFAULT_DATA.woods);
+        }
+        saveState();
+        fillSimSelect();
+        renderWoods();
+        calcSim();
+      });
+    });
+  }
+
+  document.getElementById("btnAddWood").addEventListener("click", () => {
+    state.woods.push({name:"Nova madeira", thickness:null, width:null, height:null, price:null, obs:null});
+    saveState();
+    renderWoods();
+    fillSimSelect();
+
+  // ====== PRODUTOS (lista de produtos calculados) ======
+  const prodBody = document.querySelector("#prodTable tbody");
+
+  function fmtDT(iso) {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    } catch(e) { return iso || "—"; }
+  }
+
+  function ensureProducts() {
+    if (!Array.isArray(state.products)) state.products = structuredClone(DEFAULT_DATA.products);
+  }
+
+  function renderProducts() {
+    ensureProducts();
+    if (!prodBody) return;
+    prodBody.innerHTML = "";
+
+    if (state.products.length === 0) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="18" class="muted">Nenhum produto salvo ainda. Vá ao <b>Simulador</b> e clique em <b>Salvar produto</b>.</td>`;
+      prodBody.appendChild(tr);
+      return;
+    }
+
+    state.products.slice().reverse().forEach((p, revIdx) => {
+      const idx = state.products.length - 1 - revIdx; // índice real
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${fmtDT(p.ts)}</td>
+        <td>${(p.nome ?? "—")}</td>
+        <td>${(p.sku ?? "—")}</td>
+        <td>${(p.wood ?? "—")}</td>
+        <td class="right">${fmtBRL(p.custoMdf ?? 0)}</td>
+        <td class="right">${fmtBRL(p.custoLaser ?? 0)}</td>
+        <td class="right">${fmtBRL(p.custoMao ?? 0)}</td>
+        <td class="right">${fmtBRL(p.overhead ?? 0)}</td>
+        <td class="right">${fmtBRL(p.embalagem ?? 0)}</td>
+        <td class="right">${fmtBRL(p.ajustePerdas ?? 0)}</td>
+        <td class="right"><b>${fmtBRL(p.custoTotal ?? 0)}</b></td>
+        <td class="right"><b>${fmtBRL(p.preco ?? null)}</b></td>
+        <td>${(p.canal ?? "—")}</td>
+        <td class="right">${((Number(p.taxaCanal ?? 0))/100).toLocaleString("pt-BR", {style:"percent", maximumFractionDigits:2})}</td>
+        <td class="right">${((Number(p.margemUsada ?? 0))/100).toLocaleString("pt-BR", {style:"percent", maximumFractionDigits:2})}</td>
+        <td class="right">${fmtBRL(p.lucro ?? null)}</td>
+        <td class="right">${(p.margemLiq == null) ? "—" : fmtPct(p.margemLiq)}</td>
+        <td class="right"><button class="btn danger" data-pdel="${idx}">Excluir</button></td>
+      `;
+      prodBody.appendChild(tr);
+    });
+
+    prodBody.querySelectorAll("button[data-pdel]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const i = Number(btn.dataset.pdel);
+        if (!Number.isFinite(i)) return;
+        state.products.splice(i, 1);
+        saveState();
+        renderProducts();
+      });
+    });
+  }
+
+  function saveCurrentAsProduct() {
+    ensureProducts();
+    if (!lastCalc) return alert("Recalcule o Simulador antes de salvar.");
+    // Salva um snapshot do cálculo + nome/sku (do simulador)
+    const payload = structuredClone(lastCalc);
+    payload.nome = (el.nome?.value ?? "").trim() || payload.nome || null;
+    payload.sku = (el.sku?.value ?? "").trim() || payload.sku || null;
+
+    state.products.push(payload);
+    saveState();
+    renderProducts();
+    alert("Produto salvo na aba Produtos!");
+  }
+
+  document.getElementById("btnSalvarProduto").addEventListener("click", saveCurrentAsProduct);
+
+  document.getElementById("btnLimparProdutos").addEventListener("click", () => {
+    ensureProducts();
+    if (!confirm("Tem certeza que deseja apagar TODOS os produtos salvos?")) return;
+    state.products = [];
+    saveState();
+    renderProducts();
+  });
+
+  });
+
+  // ====== PARAMETROS ======
+  function loadParamsUI() {
+    const p = state.params;
+    document.getElementById("p_laser").value = p.custoHoraLaser ?? "";
+    document.getElementById("p_mao").value = p.custoMaoObra ?? "";
+    document.getElementById("p_over").value = p.overhead ?? "";
+    document.getElementById("p_emb").value = p.embalagem ?? "";
+    document.getElementById("p_perdas").value = p.perdasPct ?? "";
+    document.getElementById("p_margem").value = p.margemDesejada ?? "";
+    document.getElementById("p_tax_shopee").value = p.taxas?.["Shopee"] ?? "";
+    document.getElementById("p_tax_ml").value = p.taxas?.["Mercado Livre"] ?? "";
+    document.getElementById("p_tax_tt").value = p.taxas?.["TikTok"] ?? "";
+  }
+
+  function saveParamsFromUI() {
+    const p = state.params;
+    p.custoHoraLaser = n(document.getElementById("p_laser").value) ?? 0;
+    p.custoMaoObra = n(document.getElementById("p_mao").value) ?? 0;
+    p.overhead = n(document.getElementById("p_over").value) ?? 0;
+    p.embalagem = n(document.getElementById("p_emb").value) ?? 0;
+    p.perdasPct = n(document.getElementById("p_perdas").value) ?? 0;
+    p.margemDesejada = n(document.getElementById("p_margem").value) ?? 0;
+    p.taxas = {
+      "Shopee": n(document.getElementById("p_tax_shopee").value) ?? 0,
+      "Mercado Livre": n(document.getElementById("p_tax_ml").value) ?? 0,
+      "TikTok": n(document.getElementById("p_tax_tt").value) ?? 0,
+    };
+    saveState();
+    calcSim();
+  }
+
+  document.getElementById("btnSalvarParams").addEventListener("click", saveParamsFromUI);
+  ["p_laser","p_mao","p_over","p_emb","p_perdas","p_margem","p_tax_shopee","p_tax_ml","p_tax_tt"].forEach(id => {
+    document.getElementById(id).addEventListener("input", saveParamsFromUI);
+  });
+
+  // ====== BACKUP ======
+  document.getElementById("btnExport").addEventListener("click", () => {
+    const payload = JSON.stringify(state, null, 2);
+    const blob = new Blob([payload], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "backup_precificacao_mdf_laser.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  document.getElementById("btnImport").addEventListener("click", () => {
+    try {
+      const raw = document.getElementById("importBox").value.trim();
+      if (!raw) return alert("Cole um JSON primeiro.");
+      const obj = JSON.parse(raw);
+      if (!obj.woods || !obj.params) return alert("JSON inválido: faltam campos.");
+      state = {
+        woods: Array.isArray(obj.woods) ? obj.woods : structuredClone(DEFAULT_DATA.woods),
+        params: obj.params || structuredClone(DEFAULT_DATA.params),
+        sim: obj.sim || structuredClone(DEFAULT_DATA.sim),
+        products: Array.isArray(obj.products) ? obj.products : structuredClone(DEFAULT_DATA.products),
+      };
+      saveState();
+      // recarregar tudo
+      loadSimInputsFromState();
+      loadParamsUI();
+      renderWoods();
+      renderProducts();
+      calcSim();
+      alert("Importado com sucesso!");
+    } catch(e) {
+      alert("Falha ao importar: " + e.message);
+    }
+  });
+
+  document.getElementById("btnReset").addEventListener("click", () => {
+    if (!confirm("Resetar tudo para o padrão da planilha?")) return;
+    state = structuredClone(DEFAULT_DATA);
+    saveState();
+    loadSimInputsFromState();
+    loadParamsUI();
+    renderWoods();
+    renderProducts();
+    calcSim();
+  });
+
+  // ====== INIT ======
+  loadSimInputsFromState();
+  loadParamsUI();
+  renderWoods();
+  renderProducts();
+  calcSim();
+</script>
+</body>
+</html>
