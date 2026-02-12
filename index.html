@@ -268,6 +268,13 @@
               <th>Nome</th>
               <th>SKU</th>
               <th>Madeira</th>
+              <th class="right">Comp. (mm)</th>
+              <th class="right">Larg. (mm)</th>
+              <th class="right">Área (cm²)</th>
+              <th class="right">% da chapa</th>
+              <th class="right">Corte (min)</th>
+              <th class="right">Grav. (min)</th>
+              <th class="right">Mont. (min)</th>
               <th class="right">MDF (R$)</th>
               <th class="right">Laser (R$)</th>
               <th class="right">Mão de obra (R$)</th>
@@ -370,6 +377,7 @@
     const t = btn.dataset.tab;
     document.querySelectorAll("section[id^='tab-']").forEach(s => s.classList.add("hide"));
     document.getElementById("tab-" + t).classList.remove("hide");
+    if (t === "prod") carregarProdutosDoBanco();
   }));
 
   // ====== Helpers ======
@@ -384,6 +392,10 @@
   function fmtPct(v) {
     if (v === null || v === "" || !Number.isFinite(v)) return "—";
     return (v*100).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + "%";
+  }
+  function fmtNum(v, dec = 2) {
+    if (v === null || v === "" || !Number.isFinite(v)) return "—";
+    return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
   }
   function clampNonNeg(x) {
     if (x === null) return null;
@@ -696,27 +708,27 @@
       sku: row.sku ?? null,
       wood: row.wood ?? null,
       canal: row.canal ?? null,
-      taxaCanal: row.taxa_canal ?? 0,
-      margemUsada: row.margem_usada ?? 0,
+      taxaCanal: row.taxa_canal ?? row.taxaCanal ?? 0,
+      margemUsada: row.margem_usada ?? row.margemUsada ?? 0,
       comp: row.comp ?? null,
       larg: row.larg ?? null,
-      areaCm2: row.area_cm2 ?? null,
-      pctChapa: row.pct_chapa ?? null,
-      tCorte: row.t_corte ?? 0,
-      tGrav: row.t_grav ?? 0,
-      tMont: row.t_mont ?? 0,
-      custoMdf: row.custo_mdf ?? 0,
-      custoLaser: row.custo_laser ?? 0,
-      custoMao: row.custo_mao ?? 0,
+      areaCm2: row.area_cm2 ?? row.areaCm2 ?? null,
+      pctChapa: row.pct_chapa ?? row.pctChapa ?? null,
+      tCorte: row.t_corte ?? row.tCorte ?? 0,
+      tGrav: row.t_grav ?? row.tGrav ?? 0,
+      tMont: row.t_mont ?? row.tMont ?? 0,
+      custoMdf: row.custo_mdf ?? row.custoMdf ?? 0,
+      custoLaser: row.custo_laser ?? row.custoLaser ?? 0,
+      custoMao: row.custo_mao ?? row.custoMao ?? 0,
       overhead: row.overhead ?? 0,
       embalagem: row.embalagem ?? 0,
-      perdasPct: row.perdas_pct ?? 0,
-      ajustePerdas: row.ajuste_perdas ?? 0,
-      custoBase: row.custo_base ?? 0,
-      custoTotal: row.custo_total ?? 0,
+      perdasPct: row.perdas_pct ?? row.perdasPct ?? 0,
+      ajustePerdas: row.ajuste_perdas ?? row.ajustePerdas ?? 0,
+      custoBase: row.custo_base ?? row.custoBase ?? 0,
+      custoTotal: row.custo_total ?? row.custoTotal ?? 0,
       preco: row.preco ?? null,
       lucro: row.lucro ?? null,
-      margemLiq: row.margem_liq ?? null,
+      margemLiq: row.margem_liq ?? row.margemLiq ?? null,
     }));
 
     renderProducts();
@@ -729,7 +741,7 @@
 
     if (state.products.length === 0) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="18" class="muted">Nenhum produto salvo ainda. Vá ao <b>Simulador</b> e clique em <b>Salvar produto</b>.</td>`;
+      tr.innerHTML = `<td colspan="25" class="muted">Nenhum produto salvo ainda. Vá ao <b>Simulador</b> e clique em <b>Salvar produto</b>.</td>`;
       prodBody.appendChild(tr);
       return;
     }
@@ -741,6 +753,13 @@
         <td>${(p.nome ?? "—")}</td>
         <td>${(p.sku ?? "—")}</td>
         <td>${(p.wood ?? "—")}</td>
+        <td class="right">${fmtNum(p.comp ?? null, 0)}</td>
+        <td class="right">${fmtNum(p.larg ?? null, 0)}</td>
+        <td class="right">${fmtNum(p.areaCm2 ?? null, 2)}</td>
+        <td class="right">${fmtPct(p.pctChapa ?? null)}</td>
+        <td class="right">${fmtNum(p.tCorte ?? null, 2)}</td>
+        <td class="right">${fmtNum(p.tGrav ?? null, 2)}</td>
+        <td class="right">${fmtNum(p.tMont ?? null, 2)}</td>
         <td class="right">${fmtBRL(p.custoMdf ?? 0)}</td>
         <td class="right">${fmtBRL(p.custoLaser ?? 0)}</td>
         <td class="right">${fmtBRL(p.custoMao ?? 0)}</td>
@@ -946,6 +965,7 @@
   loadParamsUI();
   renderWoods();
   renderProducts();
+  carregarProdutosDoBanco();
   calcSim();
 </script>
 </body>
