@@ -6,66 +6,90 @@
   <title>Sistema de Precificação MDF + Laser</title>
   <style>
     :root {
-      --bg:#0b1020; --card:#111a33; --muted:#96a0c6; --text:#eef2ff;
-      --accent:#60a5fa; --accent2:#34d399; --danger:#fb7185; --border:#223059;
+      --bg:#f4eee8; --card:#fffdfb; --muted:#9c8978; --text:#5b4a3f;
+      --accent:#a4ad8f; --accent2:#d2b39a; --danger:#cf9a9a; --border:#e5d8cc;
+      --shadow:0 14px 30px rgba(152,126,104,.12);
     }
     *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(180deg,#070a14, #0b1020); color:var(--text);}
-    header{padding:18px 20px; border-bottom:1px solid var(--border); position:sticky; top:0; backdrop-filter: blur(10px); background:rgba(7,10,20,.75); z-index:10;}
-    header h1{margin:0;font-size:18px;font-weight:700; letter-spacing:.2px}
-    header p{margin:6px 0 0; color:var(--muted); font-size:13px}
-    .wrap{max-width:1100px;margin:0 auto; padding:18px 14px 48px;}
-    .tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
-    .tab{border:1px solid var(--border); background:transparent; color:var(--text); padding:10px 12px; border-radius:12px; cursor:pointer; font-weight:600; font-size:13px;}
-    .tab.active{background:rgba(96,165,250,.18); border-color:rgba(96,165,250,.4);}
+    body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial; background:radial-gradient(circle at top,#f9f5f1,var(--bg) 70%); color:var(--text); padding:24px 12px 40px;}
+    .app-shell{max-width:1220px; margin:0 auto; background:rgba(255,250,246,.85); border:1px solid #efe4db; border-radius:28px; box-shadow:var(--shadow); overflow:hidden; backdrop-filter:blur(6px);}
+    header{padding:22px 28px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; background:rgba(252,247,242,.92);}
+    .brand{display:flex; align-items:center; gap:16px;}
+    .logo-mark{width:58px; height:58px; border-radius:18px; background:linear-gradient(145deg,#ecd7c7,#f8efe8); color:#b99075; font-size:28px; display:grid; place-items:center; font-weight:700; box-shadow:inset 0 1px 0 #fff;}
+    header h1{margin:0;font-size:37px;font-weight:500; letter-spacing:.3px; color:#8d705d;}
+    header p{margin:2px 0 0; color:var(--muted); font-size:13px}
+    .top-actions{display:flex; gap:10px; align-items:center;}
+    .ghost-btn{border:1px solid var(--border); border-radius:14px; background:#fffcf9; padding:10px 14px; color:#8d705d; font-weight:600; box-shadow:0 2px 8px rgba(168,138,114,.1);}
+    .profile{width:44px; height:44px; border-radius:50%; background:#b9c1aa; color:#fff; display:grid; place-items:center; font-weight:700;}
+    .tabs{display:flex; gap:8px; flex-wrap:wrap; padding:10px 20px; border-bottom:1px solid var(--border); background:#fffdfa;}
+    .tab{border:1px solid transparent; background:transparent; color:#8f7a69; padding:11px 16px; border-radius:12px; cursor:pointer; font-weight:600; font-size:21px;}
+    .tab.active{color:#6e8a63; background:#f6f1ec; border-color:#e8ddd2;}
+    .wrap{padding:20px 18px 34px;}
     .grid{display:grid; grid-template-columns: 1.1fr .9fr; gap:14px; align-items:start;}
     @media (max-width: 920px){ .grid{grid-template-columns: 1fr;} }
-    .card{background:rgba(17,26,51,.85); border:1px solid var(--border); border-radius:18px; padding:14px; box-shadow:0 12px 30px rgba(0,0,0,.25);}
+    .card{background:var(--card); border:1px solid var(--border); border-radius:20px; padding:16px; box-shadow:0 8px 20px rgba(162,132,106,.1);}
     .card h2{margin:0 0 10px; font-size:15px}
     .muted{color:var(--muted); font-size:12px; line-height:1.35}
     .row{display:grid; grid-template-columns: 1fr 200px; gap:10px; margin:10px 0; align-items:center;}
     @media (max-width: 520px){ .row{grid-template-columns:1fr;} }
     label{font-size:13px; font-weight:600}
-    input, select, textarea{width:100%; padding:10px 10px; border-radius:12px; border:1px solid var(--border); background:#0a1126; color:var(--text); outline:none;}
-    input:focus, select:focus, textarea:focus{border-color: rgba(96,165,250,.65); box-shadow:0 0 0 4px rgba(96,165,250,.15);}
+    input, select, textarea{width:100%; padding:11px 12px; border-radius:12px; border:1px solid var(--border); background:#fffdfa; color:var(--text); outline:none;}
+    input:focus, select:focus, textarea:focus{border-color:#d9beaa; box-shadow:0 0 0 3px rgba(223,197,176,.3);}
     .btnbar{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
-    button.btn{padding:10px 12px; border-radius:12px; border:1px solid var(--border); cursor:pointer; font-weight:700; background:#0a1126; color:var(--text);}
-    button.btn.primary{background:rgba(52,211,153,.14); border-color:rgba(52,211,153,.45);}
-    button.btn.accent{background:rgba(96,165,250,.14); border-color:rgba(96,165,250,.45);}
-    button.btn.danger{background:rgba(251,113,133,.12); border-color:rgba(251,113,133,.45);}
+    button.btn{padding:10px 14px; border-radius:12px; border:1px solid var(--border); cursor:pointer; font-weight:700; background:#f9f2ec; color:#7b6555;}
+    button.btn.primary{background:#a8b196; color:#fff; border-color:#98a188;}
+    button.btn.accent{background:#e9d5c4; border-color:#dfc2aa;}
+    button.btn.danger{background:#f6e7e6; border-color:#eac6c6; color:#ad6d6d;}
     .kpis{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:10px;}
     @media (max-width: 520px){ .kpis{grid-template-columns:1fr;} }
-    .kpi{padding:12px; border-radius:16px; border:1px solid var(--border); background:rgba(10,17,38,.6);}
+    .kpi{padding:12px; border-radius:16px; border:1px solid var(--border); background:#fff9f4;}
     .kpi .t{font-size:12px; color:var(--muted);}
     .kpi .v{font-size:20px; font-weight:800; margin-top:6px; letter-spacing:.2px}
     .table{width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border-radius:16px; border:1px solid var(--border);}
     .table th,.table td{padding:10px; font-size:13px; border-bottom:1px solid var(--border);}
-    .table th{text-align:left; color:var(--muted); background:rgba(10,17,38,.6); font-weight:700}
+    .table th{text-align:left; color:var(--muted); background:#fcf7f2; font-weight:700}
     .table tr:last-child td{border-bottom:none}
     .pill{display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); color:var(--muted);}
     .right{text-align:right}
     .hide{display:none}
-    .note{padding:10px 12px; border:1px dashed rgba(96,165,250,.5); border-radius:14px; background:rgba(96,165,250,.08); color:#dbeafe; font-size:12px; line-height:1.4;}
+    .note{padding:10px 12px; border:1px dashed #decab8; border-radius:14px; background:#fff8f1; color:#8f7563; font-size:12px; line-height:1.4;}
     .footer{margin-top:16px; color:var(--muted); font-size:12px}
-    a{color:#93c5fd}
+    a{color:#8f7a69}
+    @media (max-width: 880px){
+      header{flex-direction:column; align-items:flex-start;}
+      header h1{font-size:28px;}
+      .top-actions{width:100%;}
+      .ghost-btn{flex:1;}
+      .tab{font-size:18px;}
+    }
   </style>
 </head>
 <body>
+<div class="app-shell">
 <header>
-  <div class="wrap" style="padding:0 14px;">
-    <h1>Sistema de Precificação MDF + Laser</h1>
-    <p>Baseado na sua planilha (Madeiras + Parâmetros + Simulador). Funciona no navegador e pode salvar Produtos no Firebase (banco de dados online).</p>
+  <div class="brand">
+    <div class="logo-mark">M</div>
+    <div>
+      <h1>Sistema de Precificação MM Decor</h1>
+      <p>Visual suave e organizado para uso diário no simulador, parâmetros e produtos.</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button class="ghost-btn" type="button">Exportar CSV</button>
+    <button class="ghost-btn" type="button">Conta</button>
+    <div class="profile">M</div>
   </div>
 </header>
 
+<div class="tabs">
+  <button class="tab active" data-tab="sim">Simulador</button>
+  <button class="tab" data-tab="madeiras">Madeiras</button>
+  <button class="tab" data-tab="param">Parâmetros</button>
+  <button class="tab" data-tab="prod">Produtos</button>
+  <button class="tab" data-tab="backup">Backup</button>
+</div>
+
 <div class="wrap">
-  <div class="tabs">
-    <button class="tab active" data-tab="sim">Simulador</button>
-    <button class="tab" data-tab="madeiras">Madeiras</button>
-    <button class="tab" data-tab="param">Parâmetros</button>
-    <button class="tab" data-tab="prod">Produtos</button>
-    <button class="tab" data-tab="backup">Backup</button>
-  </div>
 
   <!-- SIMULADOR -->
   <section id="tab-sim">
@@ -321,6 +345,7 @@
       </div>
     </div>
   </section>
+</div>
 </div>
 
 <script type="module">
