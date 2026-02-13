@@ -60,6 +60,29 @@
     .summary-cards{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:12px;}
     @media (max-width: 980px){ .summary-cards{grid-template-columns:repeat(2,1fr);} }
     @media (max-width: 560px){ .summary-cards{grid-template-columns:1fr;} }
+
+    .dashboard-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px;}
+    @media (max-width: 900px){ .dashboard-grid{grid-template-columns:1fr;} }
+    .dashboard-main-cards{display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:14px;}
+    @media (max-width: 1180px){ .dashboard-main-cards{grid-template-columns:repeat(3,1fr);} }
+    @media (max-width: 760px){ .dashboard-main-cards{grid-template-columns:repeat(2,1fr);} }
+    @media (max-width: 500px){ .dashboard-main-cards{grid-template-columns:1fr;} }
+    .dashboard-card{padding:14px; border-radius:18px; border:1px solid var(--border); background:linear-gradient(160deg,#fffdfb,#f8f2ed); box-shadow:0 6px 16px rgba(162,132,106,.08);}
+    .dashboard-card .label{font-size:12px; color:var(--muted); display:flex; gap:6px; align-items:center;}
+    .dashboard-card .value{font-size:26px; font-weight:800; margin-top:8px; color:#6b5a4d;}
+    .dashboard-card .sub{font-size:12px; color:#96816f; margin-top:4px;}
+    .kanban-mini{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; overflow:auto;}
+    .kan-col{background:#fff9f4; border:1px solid var(--border); border-radius:14px; min-height:120px; padding:10px;}
+    .kan-col h3{margin:0 0 8px; font-size:13px; color:#7c6656;}
+    .kan-item{font-size:12px; background:#fff; border:1px solid #eadbcd; border-radius:10px; padding:7px; margin-bottom:6px;}
+    .metric-line{display:flex; justify-content:space-between; gap:8px; font-size:13px; padding:8px 0; border-bottom:1px dashed #eadbcd;}
+    .metric-line:last-child{border-bottom:none}
+    .capacity-bar{height:10px; border-radius:999px; background:#efe4db; overflow:hidden; margin-top:8px;}
+    .capacity-fill{height:100%; background:linear-gradient(90deg,#9eb395,#d2b39a);}
+    .alert-list{display:grid; gap:8px;}
+    .alert-item{padding:10px 12px; border-radius:12px; background:#fdf3f1; border:1px solid #f0d0cb; color:#a26b6b; font-size:13px;}
+    .profit-list{display:grid; gap:8px;}
+    .profit-item{display:flex; justify-content:space-between; align-items:center; border:1px solid var(--border); border-radius:12px; padding:10px; background:#fffcf9;}
     .manual h2{font-size:22px; color:#7b6555; margin:0 0 8px;}
     .manual h3{font-size:17px; color:#8d705d; margin:16px 0 8px;}
     .manual p,.manual li{font-size:14px; line-height:1.5; color:#6f5b4f;}
@@ -93,7 +116,8 @@
 </header>
 
 <div class="tabs">
-  <button class="tab active" data-tab="sim">Simulador</button>
+  <button class="tab active" data-tab="dashboard">Dashboard</button>
+  <button class="tab" data-tab="sim">Simulador</button>
   <button class="tab" data-tab="madeiras">Madeiras</button>
   <button class="tab" data-tab="param">Parâmetros</button>
   <button class="tab" data-tab="prod">Produtos</button>
@@ -104,8 +128,36 @@
 
 <div class="wrap">
 
+  <!-- DASHBOARD -->
+  <section id="tab-dashboard">
+    <div class="card">
+      <h2>Dashboard · Painel Geral da Fábrica</h2>
+      <div class="muted">Visão rápida para responder: estou vendendo, lucrando, atrasado e com estoque suficiente?</div>
+      <div class="dashboard-main-cards" id="dashMainCards"></div>
+      <div class="dashboard-grid">
+        <div class="card">
+          <h2>Status dos Pedidos</h2>
+          <div class="kanban-mini" id="dashKanban"></div>
+        </div>
+        <div class="card">
+          <h2>Produção do Dia</h2>
+          <div id="dashProducao"></div>
+        </div>
+        <div class="card">
+          <h2>Estoque Crítico</h2>
+          <div class="alert-list" id="dashEstoqueCritico"></div>
+        </div>
+        <div class="card">
+          <h2>Produtos Mais Lucrativos</h2>
+          <div class="profit-list" id="dashTopProdutos"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
   <!-- SIMULADOR -->
-  <section id="tab-sim">
+  <section id="tab-sim" class="hide">
     <div class="grid">
       <div class="card">
         <h2>Simulador (1 produto)</h2>
@@ -568,7 +620,8 @@
     products: [],
     priceHistory: [],
     inventoryItems: [],
-    inventoryMovements: []
+    inventoryMovements: [],
+    dashboardOrders: []
   };
 
   const LS_KEY = "precificacao_mdf_laser_v1";
@@ -609,6 +662,7 @@
         priceHistory: Array.isArray(obj.priceHistory) ? obj.priceHistory : [],
         inventoryItems: Array.isArray(obj.inventoryItems) ? obj.inventoryItems : [],
         inventoryMovements: Array.isArray(obj.inventoryMovements) ? obj.inventoryMovements : [],
+        dashboardOrders: Array.isArray(obj.dashboardOrders) ? obj.dashboardOrders : [],
       };
     } catch(e) {
       console.warn("Falha ao ler localStorage:", e);
@@ -633,6 +687,7 @@
     document.getElementById("tab-" + t).classList.remove("hide");
     if (t === "prod") carregarProdutosDoBanco();
     if (t === "estoque") carregarEstoqueDoBanco();
+    if (t === "dashboard") renderDashboard();
   }));
 
   // ====== Helpers ======
@@ -1095,6 +1150,7 @@
     state.products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderProducts();
     renderHistorico();
+    renderDashboard();
   }
 
   function loadProductInForm(id) {
@@ -1197,6 +1253,7 @@
     }
     saveState();
     renderInventory();
+    renderDashboard();
   }
 
   function ensureInventorySeeds() {
@@ -1315,6 +1372,7 @@
     ensureInventorySeeds();
     saveState();
     renderInventory();
+    renderDashboard();
     if (!itemsSnap.size && state.inventoryItems.length) {
       await Promise.all(state.inventoryItems.map((item) => setDoc(doc(db, "inventory_items", item.id), item, { merge: true })));
     }
@@ -1343,6 +1401,7 @@
     if (USE_FIREBASE_INVENTORY && db) await setDoc(doc(db, "inventory_items", item.id), item, { merge: true });
     saveState();
     renderInventory();
+    renderDashboard();
   }
 
   async function gerarOrdemProducao(productId) {
@@ -1414,6 +1473,7 @@
     saveState();
     renderProducts();
     renderHistorico();
+    renderDashboard();
     resetProdutoForm();
   });
 
@@ -1440,6 +1500,106 @@
     produtoForm.canal.value = lastCalc.canal || "Shopee";
     produtoForm.margem.value = lastCalc.margemUsada ?? state.params.margemDesejada ?? 0;
   });
+  // ====== DASHBOARD ======
+  function ensureDashboardOrdersSeeds() {
+    state.dashboardOrders = state.dashboardOrders || [];
+    if (state.dashboardOrders.length) return;
+    const now = new Date();
+    const mk = (d, status, nome, valor, lucro, corte, mont) => ({
+      id: crypto?.randomUUID?.() || String(Date.now() + Math.random()),
+      cliente: nome,
+      status,
+      valorFinal: valor,
+      lucroReal: lucro,
+      minutosCorte: corte,
+      minutosMontagem: mont,
+      previstoPara: new Date(now.getFullYear(), now.getMonth(), now.getDate() + d).toISOString(),
+      createdAt: new Date().toISOString(),
+    });
+    state.dashboardOrders = [
+      mk(-2, "Aprovado", "Pedido Festa Safari", 890, 320, 130, 80),
+      mk(-1, "Em Produção", "Topo de Bolo Premium", 420, 170, 95, 50),
+      mk(0, "Orçamento", "Lembrancinhas Dino", 0, 0, 60, 40),
+      mk(0, "Finalizado", "Painel Nome em MDF", 650, 250, 110, 70),
+      mk(0, "Entregue", "Kit Mesversário", 540, 220, 85, 40),
+    ];
+  }
+
+  function getDashboardData() {
+    const delivered = (state.dashboardOrders || []).filter((o) => o.status === "Entregue");
+    const month = new Date().getMonth();
+    const year = new Date().getFullYear();
+    const deliveredMonth = delivered.filter((o) => {
+      const dt = new Date(o.createdAt || o.previstoPara || Date.now());
+      return dt.getMonth() === month && dt.getFullYear() === year;
+    });
+
+    const receitaMes = deliveredMonth.reduce((acc, o) => acc + (n(o.valorFinal) ?? 0), 0);
+    const lucroMes = deliveredMonth.reduce((acc, o) => acc + (n(o.lucroReal) ?? 0), 0);
+    const pedidosAbertos = (state.dashboardOrders || []).filter((o) => o.status !== "Entregue").length;
+    const producaoPendente = (state.dashboardOrders || []).filter((o) => !["Finalizado", "Entregue"].includes(o.status)).length;
+    const mdfDisponivel = (state.inventoryItems || []).filter((i) => i.tipo === "MDF").reduce((acc, i) => acc + (n(i.quantidadeAtual) ?? 0), 0);
+
+    const hoje = new Date();
+    const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+    const fim = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
+    const pedidosHoje = (state.dashboardOrders || []).filter((o) => {
+      const dt = new Date(o.previstoPara || o.createdAt || Date.now());
+      return dt >= inicio && dt < fim;
+    });
+    const corteHoje = pedidosHoje.reduce((acc, o) => acc + (n(o.minutosCorte) ?? 0), 0);
+    const montagemHoje = pedidosHoje.reduce((acc, o) => acc + (n(o.minutosMontagem) ?? 0), 0);
+    const capacidadeDia = 480;
+    const capacidadeUsada = ((corteHoje + montagemHoje) / capacidadeDia) * 100;
+
+    const estoqueCritico = (state.inventoryItems || []).filter((i) => (n(i.quantidadeAtual) ?? 0) <= (n(i.estoqueMinimo) ?? 0));
+    const topProdutos = (state.products || [])
+      .slice()
+      .sort((a, b) => (n(b.lucro) ?? 0) - (n(a.lucro) ?? 0))
+      .slice(0, 5);
+
+    return { receitaMes, lucroMes, pedidosAbertos, producaoPendente, mdfDisponivel, corteHoje, montagemHoje, capacidadeDia, capacidadeUsada, estoqueCritico, topProdutos };
+  }
+
+  function renderDashboard() {
+    const cardsEl = document.getElementById("dashMainCards");
+    if (!cardsEl) return;
+    const data = getDashboardData();
+
+    const cards = [
+      { icon: "💰", label: "Receita do mês", value: fmtBRL(data.receitaMes), sub: "Pedidos entregues no mês" },
+      { icon: "📈", label: "Lucro do mês", value: fmtBRL(data.lucroMes), sub: "Receita - custos reais" },
+      { icon: "📦", label: "Pedidos em aberto", value: String(data.pedidosAbertos), sub: "Ainda não entregues" },
+      { icon: "🏭", label: "Produção pendente", value: String(data.producaoPendente), sub: "Não finalizados" },
+      { icon: "🪵", label: "MDF disponível", value: `${fmtNum(data.mdfDisponivel, 2)} chapas`, sub: "Estoque atual" },
+    ];
+
+    cardsEl.innerHTML = cards.map((c) => `<div class="dashboard-card"><div class="label">${c.icon} ${c.label}</div><div class="value">${c.value}</div><div class="sub">${c.sub}</div></div>`).join("");
+
+    const statusCols = ["Orçamento", "Aprovado", "Em Produção", "Finalizado", "Entregue"];
+    document.getElementById("dashKanban").innerHTML = statusCols.map((status) => {
+      const items = (state.dashboardOrders || []).filter((o) => o.status === status).slice(0, 4);
+      return `<div class="kan-col"><h3>${status} (${items.length})</h3>${items.map((i) => `<div class="kan-item">${i.cliente || "Pedido"}<br><b>${fmtBRL(i.valorFinal || 0)}</b></div>`).join("") || '<div class="muted">Sem itens</div>'}</div>`;
+    }).join("");
+
+    document.getElementById("dashProducao").innerHTML = `
+      <div class="metric-line"><span>Minutos de corte programados</span><b>${fmtNum(data.corteHoje, 0)} min</b></div>
+      <div class="metric-line"><span>Minutos de montagem</span><b>${fmtNum(data.montagemHoje, 0)} min</b></div>
+      <div class="metric-line"><span>Capacidade diária da máquina</span><b>${fmtNum(data.capacidadeDia, 0)} min</b></div>
+      <div class="metric-line"><span>% capacidade usada</span><b>${fmtNum(data.capacidadeUsada, 1)}%</b></div>
+      <div class="capacity-bar"><div class="capacity-fill" style="width:${Math.min(100, Math.max(0, data.capacidadeUsada))}%"></div></div>
+    `;
+
+    const crit = document.getElementById("dashEstoqueCritico");
+    if (!data.estoqueCritico.length) crit.innerHTML = '<div class="note">✅ Nenhum item crítico no momento.</div>';
+    else crit.innerHTML = data.estoqueCritico.map((i) => `<div class="alert-item">⚠ ${i.nome} baixo: ${fmtNum(i.quantidadeAtual ?? 0, i.tipo === "MDF" ? 2 : 0)} (mínimo ${fmtNum(i.estoqueMinimo ?? 0, i.tipo === "MDF" ? 2 : 0)})</div>`).join("");
+
+    const top = document.getElementById("dashTopProdutos");
+    if (!data.topProdutos.length) top.innerHTML = '<div class="muted">Cadastre produtos para ver o ranking.</div>';
+    else top.innerHTML = data.topProdutos.map((p, idx) => `<div class="profit-item"><span>${idx+1}. ${p.nome || p.sku || "Produto"}</span><b>${fmtBRL(p.lucro ?? 0)}</b></div>`).join("");
+  }
+
+
   // ====== PARAMETROS ======
   function loadParamsUI() {
     const p = state.params;
@@ -1501,6 +1661,7 @@
         priceHistory: Array.isArray(obj.priceHistory) ? obj.priceHistory : [],
         inventoryItems: Array.isArray(obj.inventoryItems) ? obj.inventoryItems : [],
         inventoryMovements: Array.isArray(obj.inventoryMovements) ? obj.inventoryMovements : [],
+        dashboardOrders: Array.isArray(obj.dashboardOrders) ? obj.dashboardOrders : [],
       };
       saveState();
       // recarregar tudo
@@ -1545,9 +1706,11 @@
   fillProductWoodSelect();
   resetProdutoForm();
   ensureInventorySeeds();
+  ensureDashboardOrdersSeeds();
   renderProducts();
   renderHistorico();
   renderInventory();
+  renderDashboard();
   carregarProdutosDoBanco();
   carregarEstoqueDoBanco();
   calcSim();
