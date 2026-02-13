@@ -1690,10 +1690,23 @@
     if(!rows.length){ orderBody.innerHTML='<tr><td colspan="9" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
     rows.forEach((o)=>{
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${o.orderNumber||'—'}</td><td>${o.clienteNome||'—'}</td><td>${o.canal||'—'}</td><td>${o.dataPedido||'—'}</td><td>${o.dataEntrega||'—'}</td><td class="right">${fmtBRL(o.valorTotal||0)}</td><td class="right">${fmtBRL(o.lucroTotal||0)}</td><td>${statusPill(o.status||'Orçamento')}</td><td class="right"><button class="btn" data-oedit="${o.id}">Editar</button></td>`;
+      tr.innerHTML=`<td>${o.orderNumber||'—'}</td><td>${o.clienteNome||'—'}</td><td>${o.canal||'—'}</td><td>${o.dataPedido||'—'}</td><td>${o.dataEntrega||'—'}</td><td class="right">${fmtBRL(o.valorTotal||0)}</td><td class="right">${fmtBRL(o.lucroTotal||0)}</td><td>${statusPill(o.status||'Orçamento')}</td><td class="right"><button class="btn" data-oedit="${o.id}">Editar</button> <button class="btn danger" data-odel="${o.id}">Excluir</button></td>`;
       orderBody.appendChild(tr);
     });
     orderBody.querySelectorAll('[data-oedit]').forEach((b)=>b.addEventListener('click',()=>loadOrderForm(b.dataset.oedit)));
+    orderBody.querySelectorAll('[data-odel]').forEach((b)=>b.addEventListener('click',()=>deleteOrder(b.dataset.odel)));
+  }
+
+  function deleteOrder(id){
+    const target = (state.orders||[]).find((x)=>x.id===id);
+    if (!target) return;
+    if (!confirm(`Deseja excluir o pedido ${target.orderNumber||''}?`)) return;
+    state.orders = (state.orders||[]).filter((x)=>x.id!==id);
+    state.productionOrders = (state.productionOrders||[]).filter((x)=>x.orderId!==id);
+    if (editingOrderId === id) resetOrderForm();
+    saveState();
+    renderOrders();
+    renderDashboard();
   }
 
   function loadOrderForm(id){
