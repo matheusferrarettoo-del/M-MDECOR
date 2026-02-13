@@ -291,11 +291,12 @@
         <div class="row"><label>Status</label><select id="prod_filter_status"><option value="all">Todos</option><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div>
         <div class="row"><label>Categoria</label><input id="prod_filter_categoria" type="text" placeholder="Ex.: Festa" /></div>
         <div class="row"><label>Espessura (mm)</label><input id="prod_filter_esp" type="number" step="1" placeholder="Ex.: 6" /></div>
-        <div class="row"><label>Ordenar por</label><select id="prod_sort"><option value="recent">Mais recentes</option><option value="lucro">Maior lucro</option><option value="margem">Maior margem</option></select></div>
+        <div class="row"><label>Canal padrão</label><select id="prod_filter_canal"><option value="all">Todos</option><option>Shopee</option><option>Mercado Livre</option><option>TikTok</option></select></div>
+        <div class="row"><label>Ordenar por</label><select id="prod_sort"><option value="recent">Mais recentes</option><option value="lucro">Maior lucro</option><option value="margem">Maior margem</option><option value="mais_vendidos">Mais vendidos</option></select></div>
         <div class="btnbar"><button class="btn" id="prod_refresh">Atualizar lista</button><button class="btn" id="prod_batch_recalc">Recalcular em lote</button><button class="btn danger" id="prod_archive_selected">Arquivar selecionados</button></div>
         <div style="margin-top:12px; overflow:auto;">
           <table class="table" id="catalogTable">
-            <thead><tr><th></th><th>Nome</th><th>SKU</th><th>MDF/Esp.</th><th class="right">Custo total</th><th class="right">Preço sugerido</th><th class="right">Lucro</th><th class="right">Margem</th><th>Status</th><th class="right">Ações</th></tr></thead>
+            <thead><tr><th></th><th>Nome</th><th>SKU</th><th>MDF/Esp.</th><th>Canal</th><th class="right">Custo total</th><th class="right">Preço sugerido</th><th class="right">Lucro</th><th class="right">Margem</th><th>Status</th><th class="right">Ações</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -310,19 +311,23 @@
         <div class="row"><label>Ativo</label><select id="pf_ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
         <div class="row"><label>Madeira</label><select id="pf_wood"></select></div>
         <div class="row"><label>Espessura (mm)</label><input id="pf_esp" type="number" /></div>
+        <div class="row"><label>Qtd de peças por produto</label><input id="pf_qtd_pecas" type="number" step="1" placeholder="Ex.: 3" /></div>
         <div class="row"><label>Comprimento (cm)</label><input id="pf_comp" type="number" step="0.01" /></div>
         <div class="row"><label>Largura (cm)</label><input id="pf_larg" type="number" step="0.01" /></div>
         <div class="row"><label>% da chapa (override)</label><input id="pf_pct" type="number" step="0.01" /></div>
         <div class="row"><label>Tempo corte (min)</label><input id="pf_tc" type="number" step="0.01" /></div>
         <div class="row"><label>Tempo gravação (min)</label><input id="pf_tg" type="number" step="0.01" /></div>
         <div class="row"><label>Tempo montagem (min)</label><input id="pf_tm" type="number" step="0.01" /></div>
+        <div class="row"><label>Tempo pintura/acabamento (min)</label><input id="pf_tp" type="number" step="0.01" /></div>
         <div class="row"><label>Canal padrão</label><select id="pf_canal"><option>Shopee</option><option>Mercado Livre</option><option>TikTok</option></select></div>
         <div class="row"><label>Margem desejada (%)</label><input id="pf_margem" type="number" step="0.01" /></div>
         <div class="row"><label>Arquivo de corte (nome/url/versão)</label><input id="pf_arquivo" type="text" placeholder="nome | url | v1" /></div>
+        <div class="row"><label>Versão do arquivo (data)</label><input id="pf_arquivo_data" type="date" /></div>
         <div class="row"><label>Observações técnicas</label><textarea id="pf_obs" rows="2"></textarea></div>
         <div class="row"><label>Checklist de qualidade (pontos críticos)</label><textarea id="pf_qualidade" rows="2" placeholder="Peça delicada, verificar bordas..."></textarea></div>
         <div class="row"><label>Insumos (nome|un|qtd|custo unit por linha)</label><textarea id="pf_insumos" rows="3" placeholder="cola|ml|10|0.03"></textarea></div>
         <div class="row"><label>Embalagem (tipo|custo)</label><input id="pf_emb" type="text" placeholder="caixa|1.50" /></div>
+        <div class="row"><label>Dimensão embalagem (opcional)</label><input id="pf_emb_dim" type="text" placeholder="30x20x8 cm" /></div>
         <div class="btnbar">
           <button class="btn primary terracota" id="pf_calcular">Calcular</button>
           <button class="btn accent" id="pf_salvar">Salvar</button>
@@ -855,6 +860,7 @@
     status: document.getElementById("prod_filter_status"),
     categoria: document.getElementById("prod_filter_categoria"),
     esp: document.getElementById("prod_filter_esp"),
+    canalFilter: document.getElementById("prod_filter_canal"),
     sort: document.getElementById("prod_sort"),
     refresh: document.getElementById("prod_refresh"),
     recalc: document.getElementById("prod_batch_recalc"),
@@ -866,19 +872,23 @@
     ativo: document.getElementById("pf_ativo"),
     wood: document.getElementById("pf_wood"),
     espField: document.getElementById("pf_esp"),
+    qtdPecas: document.getElementById("pf_qtd_pecas"),
     comp: document.getElementById("pf_comp"),
     larg: document.getElementById("pf_larg"),
     pct: document.getElementById("pf_pct"),
     tc: document.getElementById("pf_tc"),
     tg: document.getElementById("pf_tg"),
     tm: document.getElementById("pf_tm"),
+    tp: document.getElementById("pf_tp"),
     canal: document.getElementById("pf_canal"),
     margem: document.getElementById("pf_margem"),
     arquivo: document.getElementById("pf_arquivo"),
+    arquivoData: document.getElementById("pf_arquivo_data"),
     obs: document.getElementById("pf_obs"),
     qualidade: document.getElementById("pf_qualidade"),
     insumos: document.getElementById("pf_insumos"),
     emb: document.getElementById("pf_emb"),
+    embDim: document.getElementById("pf_emb_dim"),
     kCusto: document.getElementById("pf_k_custo"),
     kPreco: document.getElementById("pf_k_preco"),
     kLucro: document.getElementById("pf_k_lucro"),
@@ -919,16 +929,18 @@
       tags: (prodEls.tags.value || "").split(",").map(t => t.trim()).filter(Boolean),
       ativo: prodEls.ativo.value === "true",
       woodNome: prodEls.wood.value,
+      woodId: state.woods.findIndex(w => w.name === prodEls.wood.value),
       espessura: n(prodEls.espField.value),
+      quantidadePecas: n(prodEls.qtdPecas.value) ?? 1,
       dimensoes: { comp: n(prodEls.comp.value), larg: n(prodEls.larg.value), pctChapaOverride: n(prodEls.pct.value) },
-      temposPadrao: { corteMin: n(prodEls.tc.value) ?? 0, gravacaoMin: n(prodEls.tg.value) ?? 0, montagemMin: n(prodEls.tm.value) ?? 0 },
+      temposPadrao: { corteMin: n(prodEls.tc.value) ?? 0, gravacaoMin: n(prodEls.tg.value) ?? 0, montagemMin: n(prodEls.tm.value) ?? 0, pinturaMin: n(prodEls.tp.value) ?? 0 },
       canalPadrao: prodEls.canal.value,
       margemDesejada: n(prodEls.margem.value),
-      arquivo: { nome: arquivoNome || null, url: arquivoUrl || null, versao: arquivoVersao || null },
+      arquivo: { nome: arquivoNome || null, url: arquivoUrl || null, versao: arquivoVersao || null, dataVersao: prodEls.arquivoData.value || null },
       observacoesTecnicas: prodEls.obs.value || "",
       qualidade: { checklist: ["corte ok","lixa ok","montagem ok","acabamento ok","embalagem ok"], pontosCriticos: prodEls.qualidade.value || "" },
       insumos: parseInsumos(prodEls.insumos.value),
-      embalagem: parseEmbalagem(prodEls.emb.value),
+      embalagem: { ...parseEmbalagem(prodEls.emb.value), dimensao: (prodEls.embDim.value || "").trim() || null },
     };
   }
 
@@ -938,7 +950,7 @@
     const pct = n(draft.dimensoes.pctChapaOverride);
     const custoMdf = (pct !== null && w.price) ? (w.price * (pct / 100)) : (areaCm2 && w.costm2 ? (areaCm2 / 10000) * w.costm2 : 0);
     const custoLaser = ((n(draft.temposPadrao.corteMin) ?? 0) + (n(draft.temposPadrao.gravacaoMin) ?? 0)) / 60 * (n(state.params.custoHoraLaser) ?? 0);
-    const custoMao = (n(draft.temposPadrao.montagemMin) ?? 0) / 60 * (n(state.params.custoMaoObra) ?? 0);
+    const custoMao = ((n(draft.temposPadrao.montagemMin) ?? 0) + (n(draft.temposPadrao.pinturaMin) ?? 0)) / 60 * (n(state.params.custoMaoObra) ?? 0);
     const custoInsumos = (draft.insumos || []).reduce((acc, i) => acc + ((n(i.qtd) ?? 0) * (n(i.custoUnit) ?? 0)), 0);
     const custoEmbalagem = n(draft.embalagem?.custo) ?? (n(state.params.embalagem) ?? 0);
     const subtotal = custoMdf + custoLaser + custoMao + custoInsumos + custoEmbalagem;
@@ -970,6 +982,8 @@
       margem_usada: margemUsada,
       areaCm2,
       pct,
+      tempo_pintura_min: n(draft.temposPadrao.pinturaMin) ?? 0,
+      quantidade_pecas: n(draft.quantidadePecas) ?? 1,
     };
   }
 
@@ -1000,25 +1014,28 @@
     const fStatus = prodEls.status.value;
     const fCat = (prodEls.categoria.value || "").toLowerCase();
     const fEsp = n(prodEls.esp.value);
+    const fCanal = prodEls.canalFilter.value;
     let rows = productCatalog.filter(p => {
       const hit = [p.nome, p.sku, p.categoria, p.espessura, p.precificacaoAtual?.canal_usado].join(" ").toLowerCase().includes(q);
       const okStatus = fStatus === "all" || (fStatus === "active" ? !!p.ativo : !p.ativo);
       const okCat = !fCat || (p.categoria || "").toLowerCase().includes(fCat);
       const okEsp = fEsp === null || Number(p.espessura) === Number(fEsp);
-      return hit && okStatus && okCat && okEsp;
+      const okCanal = fCanal === "all" || (p.canalPadrao || p.precificacaoAtual?.canal_usado) === fCanal;
+      return hit && okStatus && okCat && okEsp && okCanal;
     });
     if (prodEls.sort.value === "lucro") rows.sort((a,b)=>(b.precificacaoAtual?.lucro||0)-(a.precificacaoAtual?.lucro||0));
     else if (prodEls.sort.value === "margem") rows.sort((a,b)=>(b.precificacaoAtual?.margem_liquida||0)-(a.precificacaoAtual?.margem_liquida||0));
+    else if (prodEls.sort.value === "mais_vendidos") rows.sort((a,b)=>(b.totalVendas||0)-(a.totalVendas||0));
     else rows.sort((a,b)=>String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));
 
     prodEls.body.innerHTML = "";
     if (!rows.length) {
-      prodEls.body.innerHTML = '<tr><td colspan="10" class="muted">Nenhum produto encontrado.</td></tr>';
+      prodEls.body.innerHTML = '<tr><td colspan="11" class="muted">Nenhum produto encontrado.</td></tr>';
       return;
     }
     rows.forEach(p => {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td><input type="checkbox" data-select="${p.id}"></td><td>${p.nome || "—"}</td><td>${p.sku || "—"}</td><td>${p.woodNome || "—"} / ${p.espessura || "—"}mm</td><td class="right">${fmtBRL(p.precificacaoAtual?.custo_total)}</td><td class="right">${fmtBRL(p.precificacaoAtual?.preco_sugerido)}</td><td class="right">${fmtBRL(p.precificacaoAtual?.lucro)}</td><td class="right">${fmtPct(p.precificacaoAtual?.margem_liquida)}</td><td>${p.ativo ? "ativo" : "inativo"}</td><td class="right"><button class="btn" data-open="${p.id}">Abrir</button> <button class="btn" data-dup="${p.id}">Duplicar</button> <button class="btn danger" data-arc="${p.id}">Arquivar</button></td>`;
+      tr.innerHTML = `<td><input type="checkbox" data-select="${p.id}"></td><td>${p.nome || "—"}</td><td>${p.sku || "—"}</td><td>${p.woodNome || "—"} / ${p.espessura || "—"}mm</td><td>${p.canalPadrao || p.precificacaoAtual?.canal_usado || "—"}</td><td class="right">${fmtBRL(p.precificacaoAtual?.custo_total)}</td><td class="right">${fmtBRL(p.precificacaoAtual?.preco_sugerido)}</td><td class="right">${fmtBRL(p.precificacaoAtual?.lucro)}</td><td class="right">${fmtPct(p.precificacaoAtual?.margem_liquida)}</td><td>${p.ativo ? "ativo" : "inativo"}</td><td class="right"><button class="btn" data-open="${p.id}">Abrir</button> <button class="btn" data-dup="${p.id}">Duplicar</button> <button class="btn danger" data-arc="${p.id}">Arquivar</button></td>`;
       prodEls.body.appendChild(tr);
     });
 
@@ -1044,20 +1061,23 @@
     prodEls.ativo.value = String(p?.ativo ?? true);
     prodEls.wood.value = p?.woodNome || (state.woods[0]?.name || "");
     prodEls.espField.value = p?.espessura ?? "";
+    prodEls.qtdPecas.value = p?.quantidadePecas ?? 1;
     prodEls.comp.value = p?.dimensoes?.comp ?? "";
     prodEls.larg.value = p?.dimensoes?.larg ?? "";
     prodEls.pct.value = p?.dimensoes?.pctChapaOverride ?? "";
     prodEls.tc.value = p?.temposPadrao?.corteMin ?? "";
     prodEls.tg.value = p?.temposPadrao?.gravacaoMin ?? "";
     prodEls.tm.value = p?.temposPadrao?.montagemMin ?? "";
+    prodEls.tp.value = p?.temposPadrao?.pinturaMin ?? "";
     prodEls.canal.value = p?.canalPadrao || "Shopee";
     prodEls.margem.value = p?.margemDesejada ?? "";
     prodEls.arquivo.value = [p?.arquivo?.nome || "", p?.arquivo?.url || "", p?.arquivo?.versao || ""].join(" | ");
+    prodEls.arquivoData.value = p?.arquivo?.dataVersao || "";
     prodEls.obs.value = p?.observacoesTecnicas || "";
     prodEls.qualidade.value = p?.qualidade?.pontosCriticos || "";
-    prodEls.insumos.value = (p?.insumos || []).map(i => `${i.nome}|${i.unidade}|${i.qtd}|${i.custoUnit ?? 0}`).join("
-");
+    prodEls.insumos.value = (p?.insumos || []).map(i => `${i.nome}|${i.unidade}|${i.qtd}|${i.custoUnit ?? 0}`).join("\n");
     prodEls.emb.value = `${p?.embalagem?.tipo || "caixa"}|${p?.embalagem?.custo ?? 0}`;
+    prodEls.embDim.value = p?.embalagem?.dimensao || "";
     renderProductKPIs(currentSnapshot);
   }
 
@@ -1074,6 +1094,8 @@
     if (!draft.nome || !draft.sku) return alert("Nome e SKU são obrigatórios.");
     const skuConflict = productCatalog.find(p => p.sku === draft.sku && p.id !== currentProductId);
     if (skuConflict) return alert("SKU já existe. Use um SKU único.");
+    const existing = currentProductId ? productCatalog.find(p => p.id === currentProductId) : null;
+    const previousSnapshot = existing?.precificacaoAtual || null;
     const snapshot = currentSnapshot || calculateProductPricing(draft);
     const payload = { ...draft, precificacaoAtual: snapshot, updatedAt: new Date().toISOString(), createdAt: draft.id ? (productCatalog.find(p => p.id === draft.id)?.createdAt || new Date().toISOString()) : new Date().toISOString() };
 
@@ -1081,7 +1103,7 @@
       const ref = draft.id ? doc(db, "products", draft.id) : doc(collection(db, "products"));
       await setDoc(ref, payload, { merge: true });
       currentProductId = ref.id;
-      if (!draft.id || snapshot === currentSnapshot) {
+      if (!previousSnapshot || JSON.stringify(previousSnapshot) !== JSON.stringify(snapshot)) {
         await addDoc(collection(db, "products", ref.id, "pricing_history"), snapshot);
       }
     }
@@ -1140,7 +1162,7 @@
     await loadCatalog();
   }
 
-  [prodEls.search, prodEls.status, prodEls.categoria, prodEls.esp, prodEls.sort].forEach(elm => elm?.addEventListener("input", renderCatalog));
+  [prodEls.search, prodEls.status, prodEls.categoria, prodEls.esp, prodEls.canalFilter, prodEls.sort].forEach(elm => elm?.addEventListener("input", renderCatalog));
   prodEls.refresh?.addEventListener("click", loadCatalog);
   prodEls.recalc?.addEventListener("click", batchRecalc);
   prodEls.archiveSelected?.addEventListener("click", archiveSelected);
