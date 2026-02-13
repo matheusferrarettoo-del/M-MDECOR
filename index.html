@@ -54,7 +54,7 @@
 <header>
   <div class="wrap" style="padding:0 14px;">
     <h1>Sistema de Precificação MDF + Laser</h1>
-    <p>Baseado na sua planilha (Madeiras + Parâmetros + Simulador). Funciona no navegador e pode salvar Produtos no Supabase (banco de dados online).</p>
+    <p>Baseado na sua planilha (Madeiras + Parâmetros + Simulador). Funciona no navegador e pode salvar Produtos no Firebase (banco de dados online).</p>
   </div>
 </header>
 
@@ -253,7 +253,7 @@
   <section id="tab-prod" class="hide">
     <div class="card">
       <h2>Produtos calculados</h2>
-      <div class="muted">Salve aqui os produtos que você já calculou no Simulador. Produtos são salvos no banco de dados (Supabase) e ficam disponíveis online.</div>
+      <div class="muted">Salve aqui os produtos que você já calculou no Simulador. Produtos são salvos no banco de dados (Firebase) e ficam disponíveis online.</div>
 
       <div class="btnbar" style="margin-top:12px;">
         <button class="btn danger" id="btnLimparProdutos">Limpar lista</button>
@@ -323,8 +323,21 @@
   </section>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-analytics.js";
+  import {
+    addDoc,
+    collection,
+    deleteDoc,
+    doc,
+    getDocs,
+    getFirestore,
+    orderBy,
+    query,
+    serverTimestamp,
+    writeBatch,
+  } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
   // ====== DADOS INICIAIS (da planilha) ======
   const DEFAULT_DATA = {
     woods: [{"name": "MDF Cru 3mm", "thickness": 3, "width": 140, "height": 90, "price": 60, "obs": null}, {"name": "MDF Cru 6mm", "thickness": 6, "width": 140, "height": 90, "price": 130, "obs": null}, {"name": "MDF Branco 3mm", "thickness": 3, "width": 140, "height": 90, "price": 145, "obs": null}],
@@ -335,13 +348,25 @@
 
   const LS_KEY = "precificacao_mdf_laser_v1";
 
-  // ====== SUPABASE (Produtos no banco, sem login) ======
-  // ATENÇÃO: sem login, a segurança depende do RLS estar DESLIGADO na tabela `products`.
-  // Recomendado: use isso apenas para uso privado ou avance para login/RLS depois.
-  const USE_SUPABASE_PRODUCTS = true;
-  const SUPABASE_URL = "https://fzzctmjlotzpuffgjwnl.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_zShwmIz3jL402nIexqX15A_B_C4BRG1";
-  const supabaseClient = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // ====== FIREBASE (Produtos no banco, sem login) ======
+  const USE_FIREBASE_PRODUCTS = true;
+  const firebaseConfig = {
+    apiKey: "AIzaSyCgaed-Dlv0DhhL4Mnw74chOML3NeNIgJc",
+    authDomain: "mm-decor-626f8.firebaseapp.com",
+    projectId: "mm-decor-626f8",
+    storageBucket: "mm-decor-626f8.firebasestorage.app",
+    messagingSenderId: "437485954448",
+    appId: "1:437485954448:web:60a1aa6d05dd09c0677f15",
+    measurementId: "G-SK44ZGCS1E",
+  };
+
+  const firebaseApp = initializeApp(firebaseConfig);
+  const db = getFirestore(firebaseApp);
+  try {
+    getAnalytics(firebaseApp);
+  } catch (e) {
+    console.warn("Analytics indisponível neste ambiente:", e?.message || e);
+  }
 
 
   function loadState() {
@@ -689,21 +714,17 @@
   }
 
   async function carregarProdutosDoBanco() {
-    if (!USE_SUPABASE_PRODUCTS || !supabaseClient) return;
-    const { data, error } = await supabaseClient
-      .from("products")
-      .select("*")
-      .order("created_at", { ascending: false });
+    if (!USE_FIREBASE_PRODUCTS || !db) return;
+    try {
+      const productsRef = collection(db, "products");
+      const productsQuery = query(productsRef, orderBy("created_at", "desc"));
+      const snap = await getDocs(productsQuery);
 
-    if (error) {
-      console.error(error);
-      alert("Erro ao carregar Produtos do banco: " + error.message + "\n\nConfira se a tabela 'products' existe e se o RLS está DESLIGADO.");
-      return;
-    }
-
-    state.products = (data || []).map(row => ({
-      id: row.id,
-      ts: row.created_at,
+      state.products = snap.docs.map((d) => {
+        const row = d.data();
+        return {
+          id: d.id,
+          ts: row.created_at?.toDate?.()?.toISOString?.() || null,
       nome: row.nome ?? null,
       sku: row.sku ?? null,
       wood: row.wood ?? null,
@@ -728,10 +749,15 @@
       custoTotal: row.custo_total ?? row.custoTotal ?? 0,
       preco: row.preco ?? null,
       lucro: row.lucro ?? null,
-      margemLiq: row.margem_liq ?? row.margemLiq ?? null,
-    }));
+          margemLiq: row.margem_liq ?? row.margemLiq ?? null,
+        };
+      });
 
-    renderProducts();
+      renderProducts();
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao carregar Produtos do Firebase: " + (error?.message || error));
+    }
   }
 
   function renderProducts() {
@@ -784,10 +810,13 @@
         if (!id) return alert("Sem ID para excluir. Recarregue a lista.");
         if (!confirm("Excluir este produto do banco?")) return;
 
-        if (USE_SUPABASE_PRODUCTS && supabaseClient) {
-          const { error } = await supabaseClient.from("products").delete().eq("id", id);
-          if (error) return alert("Erro ao excluir: " + error.message);
-          await carregarProdutosDoBanco();
+        if (USE_FIREBASE_PRODUCTS && db) {
+          try {
+            await deleteDoc(doc(db, "products", id));
+            await carregarProdutosDoBanco();
+          } catch (error) {
+            return alert("Erro ao excluir: " + (error?.message || error));
+          }
         } else {
           state.products = state.products.filter(x => x.id !== id);
           saveState();
@@ -805,12 +834,12 @@
     payload.nome = (el.nome?.value ?? "").trim() || payload.nome || null;
     payload.sku = (el.sku?.value ?? "").trim() || payload.sku || null;
 
-    if (!USE_SUPABASE_PRODUCTS || !supabaseClient) {
+    if (!USE_FIREBASE_PRODUCTS || !db) {
       payload.id = crypto?.randomUUID?.() || String(Date.now());
       state.products.push(payload);
       saveState();
       renderProducts();
-      return alert("Produto salvo localmente (sem Supabase).");
+      return alert("Produto salvo localmente (sem Firebase).");
     }
 
     const row = {
@@ -846,13 +875,17 @@
       margem_liq: payload.margemLiq,
     };
 
-    const { error } = await supabaseClient.from("products").insert(row);
-    if (error) {
+    try {
+      await addDoc(collection(db, "products"), {
+        ...row,
+        created_at: serverTimestamp(),
+      });
+    } catch (error) {
       console.error(error);
-      return alert("Erro ao salvar no banco: " + error.message + "\n\nConfira se a tabela 'products' existe e se o RLS está DESLIGADO.");
+      return alert("Erro ao salvar no Firebase: " + (error?.message || error));
     }
 
-    alert("Produto salvo no banco (Supabase)!");
+    alert("Produto salvo no banco (Firebase)!");
     await carregarProdutosDoBanco();
   }
 
@@ -861,13 +894,16 @@
   document.getElementById("btnLimparProdutos").addEventListener("click", async () => {
     if (!confirm("Tem certeza que deseja apagar TODOS os produtos?")) return;
 
-    if (USE_SUPABASE_PRODUCTS && supabaseClient) {
-      const { error } = await supabaseClient
-        .from("products")
-        .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000");
-      if (error) return alert("Erro ao limpar: " + error.message);
-      await carregarProdutosDoBanco();
+    if (USE_FIREBASE_PRODUCTS && db) {
+      try {
+        const snap = await getDocs(collection(db, "products"));
+        const batch = writeBatch(db);
+        snap.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+        await carregarProdutosDoBanco();
+      } catch (error) {
+        return alert("Erro ao limpar: " + (error?.message || error));
+      }
     } else {
       state.products = [];
       saveState();
