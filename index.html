@@ -718,7 +718,9 @@
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-analytics.js";
   import {
     collection,
+    deleteDoc,
     doc,
+    getDoc,
     getDocs,
     getFirestore,
     orderBy,
@@ -748,6 +750,9 @@
   // ====== FIREBASE (Produtos no banco, sem login) ======
   const USE_FIREBASE_PRODUCTS = true;
   const USE_FIREBASE_INVENTORY = true;
+  const USE_FIREBASE_SETTINGS = true;
+  const USE_FIREBASE_ORDERS = true;
+  const USE_FIREBASE_FINANCE = true;
   const firebaseConfig = {
     apiKey: "AIzaSyCgaed-Dlv0DhhL4Mnw74chOML3NeNIgJc",
     authDomain: "mm-decor-626f8.firebaseapp.com",
@@ -799,6 +804,104 @@
     localStorage.setItem(LS_KEY, JSON.stringify(state));
   }
 
+  function debounce(fn, delay = 500) {
+    let timer = null;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  }
+
+  async function salvarConfiguracoesNoBanco() {
+    if (!USE_FIREBASE_SETTINGS || !db) return;
+    await setDoc(doc(db, "app_state", "settings"), {
+      woods: state.woods || [],
+      params: state.params || {},
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+  }
+
+  async function carregarConfiguracoesDoBanco() {
+    if (!USE_FIREBASE_SETTINGS || !db) return;
+    const ref = doc(db, "app_state", "settings");
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await salvarConfiguracoesNoBanco();
+      return;
+    }
+    const data = snap.data() || {};
+    if (Array.isArray(data.woods)) state.woods = data.woods;
+    if (data.params && typeof data.params === "object") state.params = data.params;
+    saveState();
+    loadParamsUI();
+    renderWoods();
+    fillSimSelect();
+    fillProductWoodSelect();
+    calcSim();
+  }
+
+  async function salvarPedidosNoBanco() {
+    if (!USE_FIREBASE_ORDERS || !db) return;
+    await Promise.all([
+      ...((state.orders || []).map((o) => setDoc(doc(db, "orders", o.id), o, { merge: true }))),
+      ...((state.productionOrders || []).map((op) => setDoc(doc(db, "production_orders", op.id), op, { merge: true }))),
+    ]);
+  }
+
+  async function carregarPedidosDoBanco() {
+    if (!USE_FIREBASE_ORDERS || !db) return;
+    const [ordersSnap, productionSnap] = await Promise.all([
+      getDocs(query(collection(db, "orders"), orderBy("updatedAt", "desc"))),
+      getDocs(query(collection(db, "production_orders"), orderBy("createdAt", "desc"))),
+    ]);
+
+    const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const productionOrders = productionSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    if (!ordersSnap.size && !productionSnap.size) {
+      await salvarPedidosNoBanco();
+      return;
+    }
+
+    state.orders = orders;
+    state.productionOrders = productionOrders;
+    saveState();
+    resetOrderForm();
+    renderOrders();
+    renderDashboard();
+  }
+
+  async function salvarFinanceiroNoBanco() {
+    if (!USE_FIREBASE_FINANCE || !db) return;
+    await setDoc(doc(db, "finance", "main"), {
+      fixedCosts: state.finance?.fixedCosts || [],
+      entries: state.finance?.entries || [],
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+  }
+
+  async function carregarFinanceiroDoBanco() {
+    if (!USE_FIREBASE_FINANCE || !db) return;
+    const ref = doc(db, "finance", "main");
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await salvarFinanceiroNoBanco();
+      return;
+    }
+    const data = snap.data() || {};
+    state.finance = {
+      fixedCosts: Array.isArray(data.fixedCosts) ? data.fixedCosts : [],
+      entries: Array.isArray(data.entries) ? data.entries : [],
+    };
+    saveState();
+    renderFinance();
+    renderDashboard();
+  }
+
+  const syncSettingsDebounced = debounce(() => {
+    salvarConfiguracoesNoBanco().catch((e) => console.warn("Falha ao salvar configurações no Firebase:", e));
+  }, 600);
+
   let state = loadState();
   let lastCalc = null;
 
@@ -813,8 +916,14 @@
     if (t === "prod") carregarProdutosDoBanco();
     if (t === "estoque") carregarEstoqueDoBanco();
     if (t === "dashboard") renderDashboard();
-    if (t === "pedidos") renderOrders();
-    if (t === "financeiro") renderFinance();
+    if (t === "pedidos") {
+      renderOrders();
+      carregarPedidosDoBanco().catch((e) => console.warn("Falha ao carregar pedidos do Firebase:", e));
+    }
+    if (t === "financeiro") {
+      renderFinance();
+      carregarFinanceiroDoBanco().catch((e) => console.warn("Falha ao carregar financeiro do Firebase:", e));
+    }
   }));
 
   // ====== Helpers ======
@@ -1080,6 +1189,7 @@
           state.woods[i][k] = val === "" ? null : val;
         }
         saveState();
+        syncSettingsDebounced();
         fillSimSelect();
         fillProductWoodSelect();
         calcSim();
@@ -1096,6 +1206,7 @@
           state.woods = structuredClone(DEFAULT_DATA.woods);
         }
         saveState();
+        syncSettingsDebounced();
         fillSimSelect();
         fillProductWoodSelect();
         renderWoods();
@@ -1107,6 +1218,7 @@
   document.getElementById("btnAddWood").addEventListener("click", () => {
     state.woods.push({name:"Nova madeira", thickness:null, width:null, height:null, price:null, obs:null});
     saveState();
+    syncSettingsDebounced();
     renderWoods();
     fillSimSelect();
     fillProductWoodSelect();
@@ -1819,10 +1931,16 @@
     const target = (state.orders||[]).find((x)=>x.id===id);
     if (!target) return;
     if (!confirm(`Deseja excluir o pedido ${target.orderNumber||''}?`)) return;
+    const productionToDelete = (state.productionOrders || []).filter((x) => x.orderId === id);
     state.orders = (state.orders||[]).filter((x)=>x.id!==id);
     state.productionOrders = (state.productionOrders||[]).filter((x)=>x.orderId!==id);
     if (editingOrderId === id) resetOrderForm();
     saveState();
+    if (USE_FIREBASE_ORDERS && db) {
+      deleteDoc(doc(db, "orders", id)).catch((e) => console.warn("Falha ao excluir pedido no Firebase:", e));
+      Promise.all(productionToDelete.map((op) => deleteDoc(doc(db, "production_orders", op.id))))
+        .catch((e) => console.warn("Falha ao excluir OP vinculada no Firebase:", e));
+    }
     renderOrders();
     renderDashboard();
   }
@@ -1869,6 +1987,9 @@
       return;
     }
     saveState();
+    if (USE_FIREBASE_ORDERS && db) await setDoc(doc(db, "orders", order.id), order, { merge: true });
+    const op = (state.productionOrders || []).find((x) => x.orderId === order.id);
+    if (USE_FIREBASE_ORDERS && db && op?.id) await setDoc(doc(db, "production_orders", op.id), op, { merge: true });
     renderOrders();
     renderDashboard();
     loadOrderForm(order.id);
@@ -1946,6 +2067,7 @@
     fixedBody.querySelectorAll('[data-del-fixed]').forEach((btn) => btn.addEventListener('click', () => {
       state.finance.fixedCosts = (state.finance.fixedCosts || []).filter((c) => c.id !== btn.dataset.delFixed);
       saveState();
+      salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
       renderFinance();
       renderDashboard();
     }));
@@ -1953,6 +2075,7 @@
     entriesBody.querySelectorAll('[data-del-fin]').forEach((btn) => btn.addEventListener('click', () => {
       state.finance.entries = (state.finance.entries || []).filter((e) => e.id !== btn.dataset.delFin);
       saveState();
+      salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
       renderFinance();
       renderDashboard();
     }));
@@ -2094,6 +2217,7 @@
       "TikTok": n(document.getElementById("p_tax_tt").value) ?? 0,
     };
     saveState();
+    syncSettingsDebounced();
     calcSim();
   }
 
@@ -2117,6 +2241,7 @@
     document.getElementById('finFixedDesc').value = '';
     document.getElementById('finFixedValue').value = '';
     saveState();
+    salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
     renderFinance();
     renderDashboard();
   });
@@ -2133,6 +2258,7 @@
     document.getElementById('finDesc').value = '';
     document.getElementById('finValue').value = '';
     saveState();
+    salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
     renderFinance();
     renderDashboard();
   });
@@ -2171,6 +2297,9 @@
         },
       };
       saveState();
+      syncSettingsDebounced();
+      salvarPedidosNoBanco().catch((e) => console.warn("Falha ao salvar pedidos no Firebase:", e));
+      salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
       // recarregar tudo
       loadSimInputsFromState();
       loadParamsUI();
@@ -2197,6 +2326,9 @@
     if (!confirm("Resetar tudo para o padrão da planilha?")) return;
     state = structuredClone(DEFAULT_DATA);
     saveState();
+    syncSettingsDebounced();
+    salvarPedidosNoBanco().catch((e) => console.warn("Falha ao salvar pedidos no Firebase:", e));
+    salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
     loadSimInputsFromState();
     loadParamsUI();
     renderWoods();
@@ -2231,6 +2363,9 @@
   renderFinance();
   carregarProdutosDoBanco();
   carregarEstoqueDoBanco();
+  carregarConfiguracoesDoBanco().catch((e) => console.warn("Falha ao carregar configurações do Firebase:", e));
+  carregarPedidosDoBanco().catch((e) => console.warn("Falha ao carregar pedidos do Firebase:", e));
+  carregarFinanceiroDoBanco().catch((e) => console.warn("Falha ao carregar financeiro do Firebase:", e));
   calcSim();
 </script>
 </body>
