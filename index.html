@@ -131,6 +131,7 @@
   <button class="tab" data-tab="param">Parâmetros</button>
   <button class="tab" data-tab="prod">Produtos</button>
   <button class="tab" data-tab="pedidos">Pedidos</button>
+  <button class="tab" data-tab="financeiro">Financeiro</button>
   <button class="tab" data-tab="estoque">Estoque</button>
   <button class="tab" data-tab="manual">Manual</button>
   <button class="tab" data-tab="backup">Backup</button>
@@ -464,6 +465,58 @@
     </div>
   </section>
 
+  <!-- FINANCEIRO -->
+  <section id="tab-financeiro" class="hide">
+    <div class="summary-cards">
+      <div class="kpi"><div class="t">Entrada real recebida (mês)</div><div class="v" id="finEntradaRecebida">R$ 0,00</div></div>
+      <div class="kpi"><div class="t">Pagamento pendente</div><div class="v" id="finPagamentoPendente">R$ 0,00</div></div>
+      <div class="kpi"><div class="t">Custos fixos mensais</div><div class="v" id="finCustosFixos">R$ 0,00</div></div>
+      <div class="kpi"><div class="t">Fluxo de caixa do mês</div><div class="v" id="finFluxoCaixa">R$ 0,00</div></div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Custos Fixos Mensais</h2>
+        <div class="muted">Cadastre aluguel, internet, energia, contador, pró-labore e outros custos recorrentes.</div>
+        <div class="row"><label>Descrição</label><input id="finFixedDesc" type="text" placeholder="Ex.: Aluguel" /></div>
+        <div class="row"><label>Valor mensal (R$)</label><input id="finFixedValue" type="number" step="0.01" /></div>
+        <div class="btnbar"><button class="btn primary" id="btnAddFixedCost">Adicionar custo fixo</button></div>
+        <div style="margin-top:12px; overflow:auto;">
+          <table class="table" id="finFixedTable">
+            <thead><tr><th>Descrição</th><th class="right">Valor</th><th class="right">Ações</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Lançamentos Financeiros</h2>
+        <div class="muted">Registre entradas e saídas reais para medir lucro real e fluxo de caixa.</div>
+        <div class="row"><label>Tipo</label><select id="finType"><option value="entrada">Entrada</option><option value="saida">Saída</option></select></div>
+        <div class="row"><label>Descrição</label><input id="finDesc" type="text" placeholder="Ex.: Pedido #2048" /></div>
+        <div class="row"><label>Valor (R$)</label><input id="finValue" type="number" step="0.01" /></div>
+        <div class="row"><label>Data</label><input id="finDate" type="date" /></div>
+        <div class="row"><label>Status</label><select id="finStatus"><option value="recebido">Recebido / Pago</option><option value="pendente">Pendente</option></select></div>
+        <div class="btnbar"><button class="btn accent" id="btnAddFinanceEntry">Adicionar lançamento</button></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h2>Resultado Real do Mês</h2>
+      <div class="kpis">
+        <div class="kpi"><div class="t">Lucro estimado (pedidos)</div><div class="v" id="finLucroEstimado">R$ 0,00</div></div>
+        <div class="kpi"><div class="t">Lucro real do mês</div><div class="v" id="finLucroReal">R$ 0,00</div></div>
+      </div>
+      <div class="note" id="finResumo">Sem dados financeiros lançados neste mês.</div>
+      <div style="margin-top:12px; overflow:auto;">
+        <table class="table" id="finEntriesTable">
+          <thead><tr><th>Data</th><th>Tipo</th><th>Status</th><th>Descrição</th><th class="right">Valor</th><th class="right">Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- ESTOQUE -->
   <section id="tab-estoque" class="hide">
     <div class="summary-cards">
@@ -683,7 +736,11 @@
     inventoryMovements: [],
     dashboardOrders: [],
     orders: [],
-    productionOrders: []
+    productionOrders: [],
+    finance: {
+      fixedCosts: [],
+      entries: []
+    }
   };
 
   const LS_KEY = "precificacao_mdf_laser_v1";
@@ -727,6 +784,10 @@
         dashboardOrders: Array.isArray(obj.dashboardOrders) ? obj.dashboardOrders : [],
         orders: Array.isArray(obj.orders) ? obj.orders : [],
         productionOrders: Array.isArray(obj.productionOrders) ? obj.productionOrders : [],
+        finance: {
+          fixedCosts: Array.isArray(obj.finance?.fixedCosts) ? obj.finance.fixedCosts : [],
+          entries: Array.isArray(obj.finance?.entries) ? obj.finance.entries : [],
+        },
       };
     } catch(e) {
       console.warn("Falha ao ler localStorage:", e);
@@ -753,6 +814,7 @@
     if (t === "estoque") carregarEstoqueDoBanco();
     if (t === "dashboard") renderDashboard();
     if (t === "pedidos") renderOrders();
+    if (t === "financeiro") renderFinance();
   }));
 
   // ====== Helpers ======
@@ -1749,6 +1811,90 @@
     loadOrderForm(order.id);
   });
 
+  // ====== FINANCEIRO ======
+  function currentMonthRange() {
+    const now = new Date();
+    return { month: now.getMonth(), year: now.getFullYear() };
+  }
+
+  function financeMonthData() {
+    const range = currentMonthRange();
+    const entries = (state.finance?.entries || []).filter((e) => {
+      const dt = new Date((e.date || e.createdAt || new Date().toISOString()) + ((e.date || '').includes('T') ? '' : 'T00:00:00'));
+      return dt.getMonth() === range.month && dt.getFullYear() === range.year;
+    });
+    const fixedCosts = (state.finance?.fixedCosts || []).reduce((acc, c) => acc + (n(c.value) ?? 0), 0);
+
+    const entradaRecebida = entries
+      .filter((e) => e.type === 'entrada' && e.status === 'recebido')
+      .reduce((acc, e) => acc + (n(e.value) ?? 0), 0);
+    const saidaPaga = entries
+      .filter((e) => e.type === 'saida' && e.status === 'recebido')
+      .reduce((acc, e) => acc + (n(e.value) ?? 0), 0);
+    const pagamentoPendente = entries
+      .filter((e) => e.type === 'saida' && e.status === 'pendente')
+      .reduce((acc, e) => acc + (n(e.value) ?? 0), 0);
+
+    const fluxoCaixa = entradaRecebida - saidaPaga;
+    const lucroReal = entradaRecebida - saidaPaga - fixedCosts;
+
+    return { entries, fixedCosts, entradaRecebida, saidaPaga, pagamentoPendente, fluxoCaixa, lucroReal };
+  }
+
+  function renderFinance() {
+    const fixedBody = document.querySelector('#finFixedTable tbody');
+    const entriesBody = document.querySelector('#finEntriesTable tbody');
+    if (!fixedBody || !entriesBody) return;
+
+    const data = financeMonthData();
+    const dash = getDashboardData();
+
+    document.getElementById('finEntradaRecebida').textContent = fmtBRL(data.entradaRecebida);
+    document.getElementById('finPagamentoPendente').textContent = fmtBRL(data.pagamentoPendente);
+    document.getElementById('finCustosFixos').textContent = fmtBRL(data.fixedCosts);
+    document.getElementById('finFluxoCaixa').textContent = fmtBRL(data.fluxoCaixa);
+    document.getElementById('finLucroEstimado').textContent = fmtBRL(dash.lucroMes);
+    document.getElementById('finLucroReal').textContent = fmtBRL(data.lucroReal);
+
+    const dif = data.lucroReal - (dash.lucroMes || 0);
+    document.getElementById('finResumo').textContent = `Lucro real (${fmtBRL(data.lucroReal)}) x estimado (${fmtBRL(dash.lucroMes)}): diferença de ${fmtBRL(dif)}.`;
+
+    fixedBody.innerHTML = ((state.finance?.fixedCosts || []).length
+      ? (state.finance.fixedCosts || []).map((c) => `
+        <tr>
+          <td>${c.description || '—'}</td>
+          <td class="right">${fmtBRL(n(c.value) ?? 0)}</td>
+          <td class="right"><button class="btn danger" data-del-fixed="${c.id}">Excluir</button></td>
+        </tr>`).join('')
+      : '<tr><td colspan="3" class="muted">Nenhum custo fixo cadastrado.</td></tr>');
+
+    entriesBody.innerHTML = (data.entries.length
+      ? data.entries.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map((e) => `
+        <tr>
+          <td>${e.date ? new Date(e.date + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+          <td>${e.type === 'entrada' ? 'Entrada' : 'Saída'}</td>
+          <td>${e.status === 'pendente' ? 'Pendente' : 'Recebido/Pago'}</td>
+          <td>${e.description || '—'}</td>
+          <td class="right">${fmtBRL(n(e.value) ?? 0)}</td>
+          <td class="right"><button class="btn danger" data-del-fin="${e.id}">Excluir</button></td>
+        </tr>`).join('')
+      : '<tr><td colspan="6" class="muted">Nenhum lançamento financeiro no mês.</td></tr>');
+
+    fixedBody.querySelectorAll('[data-del-fixed]').forEach((btn) => btn.addEventListener('click', () => {
+      state.finance.fixedCosts = (state.finance.fixedCosts || []).filter((c) => c.id !== btn.dataset.delFixed);
+      saveState();
+      renderFinance();
+      renderDashboard();
+    }));
+
+    entriesBody.querySelectorAll('[data-del-fin]').forEach((btn) => btn.addEventListener('click', () => {
+      state.finance.entries = (state.finance.entries || []).filter((e) => e.id !== btn.dataset.delFin);
+      saveState();
+      renderFinance();
+      renderDashboard();
+    }));
+  }
+
   // ====== DASHBOARD ======
   function ensureDashboardOrdersSeeds() {
     ensureOrdersSeeds();
@@ -1814,7 +1960,8 @@
       .sort((a, b) => (n(b.lucro) ?? 0) - (n(a.lucro) ?? 0))
       .slice(0, 5);
 
-    return { receitaMes, lucroMes, pedidosAbertos, producaoPendente, mdfDisponivel, corteHoje, montagemHoje, capacidadeDia, capacidadeUsada, estoqueCritico, topProdutos };
+    const fin = financeMonthData();
+    return { receitaMes, lucroMes, pedidosAbertos, producaoPendente, mdfDisponivel, corteHoje, montagemHoje, capacidadeDia, capacidadeUsada, estoqueCritico, topProdutos, fin };
   }
 
   function renderDashboard() {
@@ -1823,11 +1970,11 @@
     const data = getDashboardData();
 
     const cards = [
-      { icon: "💰", label: "Receita do mês", value: fmtBRL(data.receitaMes), sub: "Pedidos entregues no mês" },
-      { icon: "📈", label: "Lucro do mês", value: fmtBRL(data.lucroMes), sub: "Receita - custos reais" },
-      { icon: "📦", label: "Pedidos em aberto", value: String(data.pedidosAbertos), sub: "Ainda não entregues" },
-      { icon: "🏭", label: "Produção pendente", value: String(data.producaoPendente), sub: "Não finalizados" },
-      { icon: "🪵", label: "MDF disponível", value: `${fmtNum(data.mdfDisponivel, 2)} chapas`, sub: "Estoque atual" },
+      { icon: "💸", label: "Entrada real recebida", value: fmtBRL(data.fin.entradaRecebida), sub: "Movimentos recebidos no mês" },
+      { icon: "🧾", label: "Pagamentos pendentes", value: fmtBRL(data.fin.pagamentoPendente), sub: "Saídas em aberto" },
+      { icon: "🏢", label: "Custos fixos mensais", value: fmtBRL(data.fin.fixedCosts), sub: "Custos recorrentes cadastrados" },
+      { icon: "💰", label: "Fluxo de caixa", value: fmtBRL(data.fin.fluxoCaixa), sub: "Entradas recebidas - saídas pagas" },
+      { icon: "📉", label: "Lucro real do mês", value: fmtBRL(data.fin.lucroReal), sub: "Fluxo de caixa - custos fixos" },
     ];
 
     cardsEl.innerHTML = cards.map((c) => `<div class="dashboard-card"><div class="label">${c.icon} ${c.label}</div><div class="value">${c.value}</div><div class="sub">${c.sub}</div></div>`).join("");
@@ -1892,6 +2039,41 @@
     document.getElementById(id).addEventListener("input", saveParamsFromUI);
   });
 
+  function ensureFinanceSeeds() {
+    state.finance = state.finance || {};
+    state.finance.fixedCosts = Array.isArray(state.finance.fixedCosts) ? state.finance.fixedCosts : [];
+    state.finance.entries = Array.isArray(state.finance.entries) ? state.finance.entries : [];
+  }
+
+  document.getElementById('btnAddFixedCost').addEventListener('click', () => {
+    const description = document.getElementById('finFixedDesc').value.trim();
+    const value = n(document.getElementById('finFixedValue').value) ?? 0;
+    if (!description) return alert('Informe a descrição do custo fixo.');
+    if (value <= 0) return alert('Informe um valor válido.');
+    state.finance.fixedCosts.unshift({ id: crypto?.randomUUID?.() || String(Date.now()), description, value, createdAt: new Date().toISOString() });
+    document.getElementById('finFixedDesc').value = '';
+    document.getElementById('finFixedValue').value = '';
+    saveState();
+    renderFinance();
+    renderDashboard();
+  });
+
+  document.getElementById('btnAddFinanceEntry').addEventListener('click', () => {
+    const type = document.getElementById('finType').value;
+    const description = document.getElementById('finDesc').value.trim();
+    const value = n(document.getElementById('finValue').value) ?? 0;
+    const date = document.getElementById('finDate').value || new Date().toISOString().slice(0,10);
+    const status = document.getElementById('finStatus').value;
+    if (!description) return alert('Informe a descrição do lançamento.');
+    if (value <= 0) return alert('Informe um valor válido.');
+    state.finance.entries.unshift({ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), type, description, value, date, status, createdAt: new Date().toISOString() });
+    document.getElementById('finDesc').value = '';
+    document.getElementById('finValue').value = '';
+    saveState();
+    renderFinance();
+    renderDashboard();
+  });
+
   // ====== BACKUP ======
   document.getElementById("btnExport").addEventListener("click", () => {
     const payload = JSON.stringify(state, null, 2);
@@ -1920,6 +2102,10 @@
         dashboardOrders: Array.isArray(obj.dashboardOrders) ? obj.dashboardOrders : [],
         orders: Array.isArray(obj.orders) ? obj.orders : [],
         productionOrders: Array.isArray(obj.productionOrders) ? obj.productionOrders : [],
+        finance: {
+          fixedCosts: Array.isArray(obj.finance?.fixedCosts) ? obj.finance.fixedCosts : [],
+          entries: Array.isArray(obj.finance?.entries) ? obj.finance.entries : [],
+        },
       };
       saveState();
       // recarregar tudo
@@ -1932,7 +2118,9 @@
       renderOrders();
       renderHistorico();
       ensureInventorySeeds();
+      ensureFinanceSeeds();
       renderInventory();
+      renderFinance();
       carregarProdutosDoBanco();
       carregarEstoqueDoBanco();
       calcSim();
@@ -1953,7 +2141,9 @@
     renderProducts();
     renderHistorico();
     ensureInventorySeeds();
+    ensureFinanceSeeds();
     renderInventory();
+    renderFinance();
     carregarProdutosDoBanco();
     carregarEstoqueDoBanco();
     calcSim();
@@ -1967,12 +2157,15 @@
   resetProdutoForm();
   ensureInventorySeeds();
   ensureDashboardOrdersSeeds();
+  ensureFinanceSeeds();
+  document.getElementById('finDate').value = new Date().toISOString().slice(0,10);
   resetOrderForm();
   renderOrders();
   renderProducts();
   renderHistorico();
   renderInventory();
   renderDashboard();
+  renderFinance();
   carregarProdutosDoBanco();
   carregarEstoqueDoBanco();
   calcSim();
