@@ -1385,6 +1385,62 @@
     renderDashboard();
   }
 
+  function findMdfInventoryItemByProduct(product) {
+    const madeira = (product?.madeira || "").toLowerCase().replace("mdf", "").trim();
+    const itensMdf = (state.inventoryItems || []).filter((x) => x.tipo === "MDF");
+    if (!itensMdf.length) return null;
+    if (!madeira) return itensMdf[0];
+    return itensMdf.find((x) => (x.nome || "").toLowerCase().includes(madeira)) || itensMdf[0];
+  }
+
+  function buildOrderInventoryDemands(order) {
+    const demands = new Map();
+    (order.itens || []).forEach((it) => {
+      const qtd = Math.max(0, n(it.quantidade) ?? 0);
+      if (qtd <= 0) return;
+      const product = (state.products || []).find((x) => x.id === it.productId);
+      const mdfItem = findMdfInventoryItemByProduct(product);
+      const embItem = (state.inventoryItems || []).find((x) => x.tipo === "EMBALAGEM");
+      const pctChapa = n(product?.dimensoes?.pctChapa) ?? 0;
+      const consumoMdf = pctChapa > 0 ? (pctChapa / 100) * qtd : 0;
+      const consumoEmb = qtd;
+
+      if (mdfItem && consumoMdf > 0) {
+        const cur = demands.get(mdfItem.id) || { itemId: mdfItem.id, quantidade: 0, motivo: "Produção", observacao: `Pedido ${order.orderNumber || order.id}` };
+        cur.quantidade += consumoMdf;
+        demands.set(mdfItem.id, cur);
+      }
+      if (embItem && consumoEmb > 0) {
+        const cur = demands.get(embItem.id) || { itemId: embItem.id, quantidade: 0, motivo: "Produção", observacao: `Pedido ${order.orderNumber || order.id}` };
+        cur.quantidade += consumoEmb;
+        demands.set(embItem.id, cur);
+      }
+    });
+    return [...demands.values()].map((d) => ({ ...d, quantidade: Number(d.quantidade.toFixed(4)) }));
+  }
+
+  async function debitInventoryForOrderProduction(order, prevStatus) {
+    const entrouEmProducao = order.status === "Em Produção" && prevStatus !== "Em Produção";
+    if (!entrouEmProducao || order.inventoryDebitedAt) return null;
+    const demands = buildOrderInventoryDemands(order);
+    if (!demands.length) return null;
+
+    demands.forEach((d) => {
+      const item = (state.inventoryItems || []).find((x) => x.id === d.itemId);
+      const atual = n(item?.quantidadeAtual) ?? 0;
+      if (!item || atual < d.quantidade) {
+        throw new Error(`Estoque insuficiente para ${item?.nome || "material"}. Necessário: ${fmtNum(d.quantidade, 2)}.`);
+      }
+    });
+
+    for (const demand of demands) {
+      const mov = buildInventoryMovement(demand.itemId, "saida", demand.quantidade, demand.motivo, demand.observacao);
+      await applyInventoryMovement(mov);
+    }
+    order.inventoryDebitedAt = new Date().toISOString();
+    return demands;
+  }
+
   function ensureInventorySeeds() {
     state.inventoryItems = state.inventoryItems || [];
     if (state.inventoryItems.length) return;
@@ -1788,7 +1844,7 @@
   document.getElementById('btnAddOrderItem').addEventListener('click', ()=>{ orderItemsDraft.push({ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), productId: '', quantidade: 1, precoUnit: 0 }); recalcOrderDraft(); });
   [orderForm.dataEntrega, orderForm.status].forEach((f)=>f.addEventListener('input', renderOrderSummary));
 
-  document.getElementById('btnSalvarPedido').addEventListener('click', ()=>{
+  document.getElementById('btnSalvarPedido').addEventListener('click', async ()=>{
     if (!orderForm.clienteNome.value.trim()) return alert('Informe o nome do cliente.');
     const totals = orderTotals(orderItemsDraft);
     const now = new Date().toISOString();
@@ -1800,11 +1856,18 @@
       status: orderForm.status.value, dataPedido: orderForm.dataPedido.value, dataEntrega: orderForm.dataEntrega.value,
       itens: orderItemsDraft.map((it)=>({ productId: it.productId||null, nomeProduto: it.nomeProduto||'', quantidade: n(it.quantidade)??0, precoUnit: n(it.precoUnit)??0, custoUnit: n(it.custoUnit)??0, lucroUnit: n(it.lucroUnit)??0 })),
       valorTotal: totals.valorTotal, custoTotal: totals.custoTotal, lucroTotal: totals.lucroTotal, minutosCorte: totals.minutosCorte, minutosMontagem: totals.minutosMontagem,
+      inventoryDebitedAt: prev?.inventoryDebitedAt || null,
       createdAt: prev?.createdAt || now, updatedAt: now
     };
-    createProductionOrderIfNeeded(order, prev?.status);
-    if (editingOrderId) { const i=state.orders.findIndex((x)=>x.id===editingOrderId); if(i>=0) state.orders[i]=order; }
-    else state.orders.unshift(order);
+    try {
+      await debitInventoryForOrderProduction(order, prev?.status);
+      createProductionOrderIfNeeded(order, prev?.status);
+      if (editingOrderId) { const i=state.orders.findIndex((x)=>x.id===editingOrderId); if(i>=0) state.orders[i]=order; }
+      else state.orders.unshift(order);
+    } catch (err) {
+      alert(err?.message || "Não foi possível debitar o estoque automaticamente.");
+      return;
+    }
     saveState();
     renderOrders();
     renderDashboard();
