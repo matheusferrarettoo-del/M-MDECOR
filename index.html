@@ -282,51 +282,67 @@
 
   <!-- PRODUTOS -->
   <section id="tab-prod" class="hide">
-    <div class="card">
-      <h2>Produtos calculados</h2>
-      <div class="muted">Salve aqui os produtos que você já calculou no Simulador. Produtos são salvos no banco de dados (Firebase) e ficam disponíveis online.</div>
-
-      <div class="btnbar" style="margin-top:12px;">
-        <button class="btn danger" id="btnLimparProdutos">Limpar lista</button>
-        <span class="pill">Dica: use o botão <b>Salvar produto</b> no Simulador</span>
+    <div class="grid">
+      <div class="card">
+        <h2>Módulo Produtos</h2>
+        <div class="muted">Cadastro com ficha técnica, precificação automática e histórico de recálculo.</div>
+        <div class="btnbar">
+          <button class="btn primary" id="btnNovoProduto">Novo produto</button>
+        </div>
+        <div style="margin-top:12px; overflow:auto;">
+          <table class="table" id="prodTable">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>SKU</th>
+                <th class="right">Custo total</th>
+                <th class="right">Preço sugerido</th>
+                <th class="right">Lucro</th>
+                <th class="right">Margem %</th>
+                <th>Status</th>
+                <th class="right">Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
 
-      <div style="margin-top:12px; overflow:auto;">
-        <table class="table" id="prodTable">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Nome</th>
-              <th>SKU</th>
-              <th>Madeira</th>
-              <th class="right">Comp. (mm)</th>
-              <th class="right">Larg. (mm)</th>
-              <th class="right">Área (cm²)</th>
-              <th class="right">% da chapa</th>
-              <th class="right">Corte (min)</th>
-              <th class="right">Grav. (min)</th>
-              <th class="right">Mont. (min)</th>
-              <th class="right">MDF (R$)</th>
-              <th class="right">Laser (R$)</th>
-              <th class="right">Mão de obra (R$)</th>
-              <th class="right">Overhead (R$)</th>
-              <th class="right">Embalagem (R$)</th>
-              <th class="right">Perdas (R$)</th>
-              <th class="right"><b>Custo total (R$)</b></th>
-              <th class="right"><b>Preço (R$)</b></th>
-              <th>Canal</th>
-              <th class="right">Taxa</th>
-              <th class="right">Margem</th>
-              <th class="right">Lucro (R$)</th>
-              <th class="right">Margem liq.</th>
-              <th class="right">Ações</th>
-            </tr>
-          </thead>
+      <div class="card">
+        <h2>Criar / Editar Produto</h2>
+        <div class="row"><label>Nome do produto*</label><input id="prod_nome" type="text" /></div>
+        <div class="row"><label>SKU único*</label><input id="prod_sku" type="text" /></div>
+        <div class="row"><label>Categoria*</label><input id="prod_categoria" type="text" placeholder="Festa, Brinquedo..." /></div>
+        <div class="row"><label>Madeira*</label><select id="prod_wood"></select></div>
+        <div class="row"><label>Espessura</label><input id="prod_espessura" type="text" placeholder="Ex.: 6mm" /></div>
+        <div class="row"><label>Status</label><select id="prod_ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;" />
+        <div class="row"><label>Comprimento (cm)</label><input id="prod_comp" type="number" step="0.01" /></div>
+        <div class="row"><label>Largura (cm)</label><input id="prod_larg" type="number" step="0.01" /></div>
+        <div class="row"><label>% da chapa (opcional)</label><input id="prod_pct" type="number" step="0.01" /></div>
+        <div class="row"><label>Tempo corte (min)</label><input id="prod_corte" type="number" step="0.01" /></div>
+        <div class="row"><label>Tempo gravação (min)</label><input id="prod_gravacao" type="number" step="0.01" /></div>
+        <div class="row"><label>Tempo montagem (min)</label><input id="prod_montagem" type="number" step="0.01" /></div>
+        <div class="row"><label>Custo embalagem (R$)</label><input id="prod_embalagem" type="number" step="0.01" /></div>
+        <div class="row"><label>Canal para snapshot</label><select id="prod_canal"><option>Shopee</option><option>Mercado Livre</option><option>TikTok</option></select></div>
+        <div class="row"><label>Margem desejada (%)</label><input id="prod_margem" type="number" step="0.01" /></div>
+        <div class="row" style="grid-template-columns:1fr;"><label>Observações técnicas</label><textarea id="prod_obs" rows="2"></textarea></div>
+        <div class="btnbar">
+          <button class="btn accent" id="btnRecalcularProduto">Recalcular</button>
+          <button class="btn primary" id="btnSalvarProdutoModulo">Salvar produto</button>
+        </div>
+        <div class="note" id="prodResumoCalc">Preencha os dados e clique em recalcular.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h2>Histórico de Precificação</h2>
+      <div style="overflow:auto;">
+        <table class="table" id="histTable">
+          <thead><tr><th>Data</th><th>Produto/SKU</th><th class="right">Custo total</th><th class="right">Preço</th><th class="right">Margem</th><th>Canal</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
-
-      <div class="footer">Os valores salvos são os mesmos do detalhamento do Simulador: MDF, Laser (tempo de corte + gravação), mão de obra (montagem/acabamento), overhead, embalagem e ajuste de perdas.</div>
     </div>
   </section>
 
@@ -456,23 +472,21 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-analytics.js";
   import {
-    addDoc,
     collection,
-    deleteDoc,
     doc,
     getDocs,
     getFirestore,
     orderBy,
     query,
-    serverTimestamp,
-    writeBatch,
+    setDoc,
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
   // ====== DADOS INICIAIS (da planilha) ======
   const DEFAULT_DATA = {
     woods: [{"name": "MDF Cru 3mm", "thickness": 3, "width": 140, "height": 90, "price": 60, "obs": null}, {"name": "MDF Cru 6mm", "thickness": 6, "width": 140, "height": 90, "price": 130, "obs": null}, {"name": "MDF Branco 3mm", "thickness": 3, "width": 140, "height": 90, "price": 145, "obs": null}],
     params: {"custoHoraLaser": 30, "custoMaoObra": 18, "overhead": 1.5, "embalagem": 1.5, "perdasPct": 5, "taxas": {"Shopee": 20, "Mercado Livre": 16, "TikTok": 12}, "margemDesejada": 30},
     sim: {"wood": "MDF Cru 6mm", "comprimento": 80, "largura": 60, "areaCm2": 4800, "pctChapa": null, "tempoCorte": 10, "tempoGrav": 0, "tempoMont": 5, "canal": "Shopee", "margem": null, "nome": null, "sku": null},
-    products: []
+    products: [],
+    priceHistory: []
   };
 
   const LS_KEY = "precificacao_mdf_laser_v1";
@@ -509,6 +523,7 @@
         params: obj.params ? obj.params : structuredClone(DEFAULT_DATA.params),
         sim: obj.sim ? obj.sim : structuredClone(DEFAULT_DATA.sim),
         products: Array.isArray(obj.products) ? obj.products : structuredClone(DEFAULT_DATA.products),
+        priceHistory: Array.isArray(obj.priceHistory) ? obj.priceHistory : [],
       };
     } catch(e) {
       console.warn("Falha ao ler localStorage:", e);
@@ -798,6 +813,7 @@
         }
         saveState();
         fillSimSelect();
+        fillProductWoodSelect();
         calcSim();
         renderWoods(); // re-render pra atualizar área/custo
       });
@@ -813,6 +829,7 @@
         }
         saveState();
         fillSimSelect();
+        fillProductWoodSelect();
         renderWoods();
         calcSim();
       });
@@ -824,222 +841,282 @@
     saveState();
     renderWoods();
     fillSimSelect();
+    fillProductWoodSelect();
   });
 
 
 
-  // ====== PRODUTOS (lista de produtos calculados) ======
+  // ====== MÓDULO PRODUTOS ======
   const prodBody = document.querySelector("#prodTable tbody");
+  const histBody = document.querySelector("#histTable tbody");
+  const produtoForm = {
+    nome: document.getElementById("prod_nome"),
+    sku: document.getElementById("prod_sku"),
+    categoria: document.getElementById("prod_categoria"),
+    wood: document.getElementById("prod_wood"),
+    espessura: document.getElementById("prod_espessura"),
+    ativo: document.getElementById("prod_ativo"),
+    comp: document.getElementById("prod_comp"),
+    larg: document.getElementById("prod_larg"),
+    pct: document.getElementById("prod_pct"),
+    corte: document.getElementById("prod_corte"),
+    gravacao: document.getElementById("prod_gravacao"),
+    montagem: document.getElementById("prod_montagem"),
+    embalagem: document.getElementById("prod_embalagem"),
+    canal: document.getElementById("prod_canal"),
+    margem: document.getElementById("prod_margem"),
+    obs: document.getElementById("prod_obs"),
+  };
+  let editingProductId = null;
+  let lastProductCalc = null;
 
   function fmtDT(iso) {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-    } catch(e) { return iso || "—"; }
+    try { return new Date(iso).toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short"}); }
+    catch(e){ return iso || "—"; }
   }
 
-  function ensureProducts() {
-    if (!Array.isArray(state.products)) state.products = structuredClone(DEFAULT_DATA.products);
+  function fillProductWoodSelect() {
+    produtoForm.wood.innerHTML = "";
+    state.woods.forEach(w => {
+      const opt = document.createElement("option");
+      opt.value = w.name;
+      opt.textContent = `${w.name} (${w.thickness ?? "—"}mm)`;
+      produtoForm.wood.appendChild(opt);
+    });
+  }
+
+  function resetProdutoForm() {
+    editingProductId = null;
+    Object.values(produtoForm).forEach((x) => { if (x.tagName === "SELECT") return; x.value = ""; });
+    produtoForm.ativo.value = "true";
+    produtoForm.canal.value = "Shopee";
+    produtoForm.wood.value = state.woods[0]?.name || "";
+    produtoForm.embalagem.value = state.params.embalagem ?? 0;
+    produtoForm.margem.value = state.params.margemDesejada ?? 0;
+    document.getElementById("prodResumoCalc").textContent = "Preencha os dados e clique em recalcular.";
+    lastProductCalc = null;
+  }
+
+  function computeProdutoFromForm() {
+    const w = woodComputed(getWoodByName(produtoForm.wood.value) || {});
+    const comp = n(produtoForm.comp.value) ?? 0;
+    const larg = n(produtoForm.larg.value) ?? 0;
+    const pctChapa = n(produtoForm.pct.value);
+    const tCorte = n(produtoForm.corte.value) ?? 0;
+    const tGrav = n(produtoForm.gravacao.value) ?? 0;
+    const tMont = n(produtoForm.montagem.value) ?? 0;
+    const embalagem = n(produtoForm.embalagem.value) ?? 0;
+    const canal = produtoForm.canal.value || "Shopee";
+    const margemDesejada = n(produtoForm.margem.value) ?? (n(state.params.margemDesejada) ?? 0);
+    const taxaCanal = n(state.params.taxas?.[canal]) ?? 0;
+    const areaCm2 = comp * larg;
+
+    let custoMdf = 0;
+    if (pctChapa && n(w.price) !== null) custoMdf = n(w.price) * (pctChapa/100);
+    else if (areaCm2 && n(w.costm2) !== null) custoMdf = n(w.costm2) * (areaCm2/10000);
+
+    const custoLaser = ((n(state.params.custoHoraLaser) ?? 0)/60) * (tCorte + tGrav);
+    const custoMao = ((n(state.params.custoMaoObra) ?? 0)/60) * tMont;
+    const perdasPct = n(state.params.perdasPct) ?? 0;
+    const overheadPct = n(state.params.overhead) ?? 0;
+
+    const subtotal = custoMdf + custoLaser + custoMao + embalagem;
+    const ajustePerdas = subtotal * (perdasPct/100);
+    const overhead = subtotal * (overheadPct/100);
+    const custoTotal = subtotal + ajustePerdas + overhead;
+
+    const preco = custoTotal * (1 + margemDesejada/100 + taxaCanal/100);
+    const lucro = preco - custoTotal;
+    const margemLiquida = preco > 0 ? (lucro/preco) : 0;
+
+    return {
+      nome: produtoForm.nome.value.trim(),
+      sku: produtoForm.sku.value.trim(),
+      categoria: produtoForm.categoria.value.trim(),
+      woodId: produtoForm.wood.value,
+      madeira: w.name || null,
+      espessura: produtoForm.espessura.value.trim() || (w.thickness ? `${w.thickness}mm` : null),
+      dimensoes: { comp, larg, pctChapa: pctChapa ?? null },
+      tempos: { corte: tCorte, gravacao: tGrav, montagem: tMont },
+      embalagem,
+      observacoesTecnicas: produtoForm.obs.value.trim() || null,
+      canal,
+      taxaCanal,
+      margemDesejada,
+      custoMdf,
+      custoLaser,
+      custoMao,
+      ajustePerdas,
+      overhead,
+      custoTotal,
+      precoSugerido: preco,
+      lucro,
+      margemLiquida,
+      ativo: produtoForm.ativo.value === "true",
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  function renderProducts() {
+    if (!prodBody) return;
+    prodBody.innerHTML = "";
+    if (!state.products?.length) {
+      prodBody.innerHTML = '<tr><td colspan="8" class="muted">Nenhum produto cadastrado.</td></tr>';
+      return;
+    }
+    state.products.forEach((p) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${p.nome ?? "—"}</td>
+        <td>${p.sku ?? "—"}</td>
+        <td class="right">${fmtBRL(p.custoTotal ?? 0)}</td>
+        <td class="right">${fmtBRL(p.precoSugerido ?? 0)}</td>
+        <td class="right">${fmtBRL(p.lucro ?? 0)}</td>
+        <td class="right">${fmtPct(p.margemLiquida ?? 0)}</td>
+        <td><span class="pill">${p.ativo ? "Ativo" : "Inativo"}</span></td>
+        <td class="right">
+          <button class="btn" data-pedit="${p.id}">Editar</button>
+          <button class="btn accent" data-pdup="${p.id}">Duplicar</button>
+          <button class="btn danger" data-parq="${p.id}">Arquivar</button>
+        </td>`;
+      prodBody.appendChild(tr);
+    });
+
+    prodBody.querySelectorAll("button[data-pedit]").forEach((btn) => btn.addEventListener("click", () => loadProductInForm(btn.dataset.pedit)));
+    prodBody.querySelectorAll("button[data-pdup]").forEach((btn) => btn.addEventListener("click", () => duplicarProduto(btn.dataset.pdup)));
+    prodBody.querySelectorAll("button[data-parq]").forEach((btn) => btn.addEventListener("click", () => arquivarProduto(btn.dataset.parq)));
+  }
+
+  function renderHistorico() {
+    histBody.innerHTML = "";
+    const rows = (state.priceHistory || []).slice().sort((a,b)=> (b.data||"").localeCompare(a.data||""));
+    if (!rows.length) {
+      histBody.innerHTML = '<tr><td colspan="6" class="muted">Sem snapshots de precificação.</td></tr>';
+      return;
+    }
+    rows.forEach((h) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${fmtDT(h.data)}</td><td>${h.nome || "—"} / ${h.sku || "—"}</td><td class="right">${fmtBRL(h.custoTotal)}</td><td class="right">${fmtBRL(h.preco)}</td><td class="right">${fmtPct(h.margem)}</td><td>${h.canal || "—"}</td>`;
+      histBody.appendChild(tr);
+    });
   }
 
   async function carregarProdutosDoBanco() {
     if (!USE_FIREBASE_PRODUCTS || !db) return;
-    try {
-      const productsRef = collection(db, "products");
-      const productsQuery = query(productsRef, orderBy("created_at", "desc"));
-      const snap = await getDocs(productsQuery);
-
-      state.products = snap.docs.map((d) => {
-        const row = d.data();
-        return {
-          id: d.id,
-          ts: row.created_at?.toDate?.()?.toISOString?.() || null,
-      nome: row.nome ?? null,
-      sku: row.sku ?? null,
-      wood: row.wood ?? null,
-      canal: row.canal ?? null,
-      taxaCanal: row.taxa_canal ?? row.taxaCanal ?? 0,
-      margemUsada: row.margem_usada ?? row.margemUsada ?? 0,
-      comp: row.comp ?? null,
-      larg: row.larg ?? null,
-      areaCm2: row.area_cm2 ?? row.areaCm2 ?? null,
-      pctChapa: row.pct_chapa ?? row.pctChapa ?? null,
-      tCorte: row.t_corte ?? row.tCorte ?? 0,
-      tGrav: row.t_grav ?? row.tGrav ?? 0,
-      tMont: row.t_mont ?? row.tMont ?? 0,
-      custoMdf: row.custo_mdf ?? row.custoMdf ?? 0,
-      custoLaser: row.custo_laser ?? row.custoLaser ?? 0,
-      custoMao: row.custo_mao ?? row.custoMao ?? 0,
-      overhead: row.overhead ?? 0,
-      embalagem: row.embalagem ?? 0,
-      perdasPct: row.perdas_pct ?? row.perdasPct ?? 0,
-      ajustePerdas: row.ajuste_perdas ?? row.ajustePerdas ?? 0,
-      custoBase: row.custo_base ?? row.custoBase ?? 0,
-      custoTotal: row.custo_total ?? row.custoTotal ?? 0,
-      preco: row.preco ?? null,
-      lucro: row.lucro ?? null,
-          margemLiq: row.margem_liq ?? row.margemLiq ?? null,
-        };
-      });
-
-      renderProducts();
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao carregar Produtos do Firebase: " + (error?.message || error));
-    }
+    const snap = await getDocs(query(collection(db, "products"), orderBy("updatedAt", "desc")));
+    state.products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderProducts();
+    renderHistorico();
   }
 
-  function renderProducts() {
-    ensureProducts();
-    if (!prodBody) return;
-    prodBody.innerHTML = "";
-
-    if (state.products.length === 0) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="25" class="muted">Nenhum produto salvo ainda. Vá ao <b>Simulador</b> e clique em <b>Salvar produto</b>.</td>`;
-      prodBody.appendChild(tr);
-      return;
-    }
-
-    state.products.forEach((p) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${fmtDT(p.ts)}</td>
-        <td>${(p.nome ?? "—")}</td>
-        <td>${(p.sku ?? "—")}</td>
-        <td>${(p.wood ?? "—")}</td>
-        <td class="right">${fmtNum(p.comp ?? null, 0)}</td>
-        <td class="right">${fmtNum(p.larg ?? null, 0)}</td>
-        <td class="right">${fmtNum(p.areaCm2 ?? null, 2)}</td>
-        <td class="right">${fmtPct(p.pctChapa ?? null)}</td>
-        <td class="right">${fmtNum(p.tCorte ?? null, 2)}</td>
-        <td class="right">${fmtNum(p.tGrav ?? null, 2)}</td>
-        <td class="right">${fmtNum(p.tMont ?? null, 2)}</td>
-        <td class="right">${fmtBRL(p.custoMdf ?? 0)}</td>
-        <td class="right">${fmtBRL(p.custoLaser ?? 0)}</td>
-        <td class="right">${fmtBRL(p.custoMao ?? 0)}</td>
-        <td class="right">${fmtBRL(p.overhead ?? 0)}</td>
-        <td class="right">${fmtBRL(p.embalagem ?? 0)}</td>
-        <td class="right">${fmtBRL(p.ajustePerdas ?? 0)}</td>
-        <td class="right"><b>${fmtBRL(p.custoTotal ?? 0)}</b></td>
-        <td class="right"><b>${fmtBRL(p.preco ?? null)}</b></td>
-        <td>${(p.canal ?? "—")}</td>
-        <td class="right">${((Number(p.taxaCanal ?? 0))/100).toLocaleString("pt-BR", {style:"percent", maximumFractionDigits:2})}</td>
-        <td class="right">${((Number(p.margemUsada ?? 0))/100).toLocaleString("pt-BR", {style:"percent", maximumFractionDigits:2})}</td>
-        <td class="right">${fmtBRL(p.lucro ?? null)}</td>
-        <td class="right">${(p.margemLiq == null) ? "—" : fmtPct(p.margemLiq)}</td>
-        <td class="right"><button class="btn danger" data-pdel="${p.id || ""}">Excluir</button></td>
-      `;
-      prodBody.appendChild(tr);
-    });
-
-    prodBody.querySelectorAll("button[data-pdel]").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const id = (btn.dataset.pdel || "").trim();
-        if (!id) return alert("Sem ID para excluir. Recarregue a lista.");
-        if (!confirm("Excluir este produto do banco?")) return;
-
-        if (USE_FIREBASE_PRODUCTS && db) {
-          try {
-            await deleteDoc(doc(db, "products", id));
-            await carregarProdutosDoBanco();
-          } catch (error) {
-            return alert("Erro ao excluir: " + (error?.message || error));
-          }
-        } else {
-          state.products = state.products.filter(x => x.id !== id);
-          saveState();
-          renderProducts();
-        }
-      });
-    });
+  function loadProductInForm(id) {
+    const p = state.products.find((x) => x.id === id);
+    if (!p) return;
+    editingProductId = id;
+    produtoForm.nome.value = p.nome || "";
+    produtoForm.sku.value = p.sku || "";
+    produtoForm.categoria.value = p.categoria || "";
+    produtoForm.wood.value = p.woodId || p.madeira || "";
+    produtoForm.espessura.value = p.espessura || "";
+    produtoForm.ativo.value = String(!!p.ativo);
+    produtoForm.comp.value = p.dimensoes?.comp ?? "";
+    produtoForm.larg.value = p.dimensoes?.larg ?? "";
+    produtoForm.pct.value = p.dimensoes?.pctChapa ?? "";
+    produtoForm.corte.value = p.tempos?.corte ?? "";
+    produtoForm.gravacao.value = p.tempos?.gravacao ?? "";
+    produtoForm.montagem.value = p.tempos?.montagem ?? "";
+    produtoForm.embalagem.value = p.embalagem ?? "";
+    produtoForm.obs.value = p.observacoesTecnicas ?? "";
+    produtoForm.canal.value = p.canal || "Shopee";
+    produtoForm.margem.value = p.margemDesejada ?? "";
+    lastProductCalc = p;
   }
 
-  async function salvarProdutoAtual() {
-    ensureProducts();
-    if (!lastCalc) return alert("Recalcule o Simulador antes de salvar.");
-
-    const payload = structuredClone(lastCalc);
-    payload.nome = (el.nome?.value ?? "").trim() || payload.nome || null;
-    payload.sku = (el.sku?.value ?? "").trim() || payload.sku || null;
-
-    if (!USE_FIREBASE_PRODUCTS || !db) {
-      payload.id = crypto?.randomUUID?.() || String(Date.now());
-      state.products.push(payload);
-      saveState();
-      renderProducts();
-      return alert("Produto salvo localmente (sem Firebase).");
-    }
-
-    const row = {
-      nome: payload.nome,
-      sku: payload.sku,
-      wood: payload.wood,
-      canal: payload.canal,
-
-      taxa_canal: payload.taxaCanal,
-      margem_usada: payload.margemUsada,
-
-      comp: payload.comp,
-      larg: payload.larg,
-      area_cm2: payload.areaCm2,
-      pct_chapa: payload.pctChapa,
-
-      t_corte: payload.tCorte,
-      t_grav: payload.tGrav,
-      t_mont: payload.tMont,
-
-      custo_mdf: payload.custoMdf,
-      custo_laser: payload.custoLaser,
-      custo_mao: payload.custoMao,
-      overhead: payload.overhead,
-      embalagem: payload.embalagem,
-      perdas_pct: payload.perdasPct,
-      ajuste_perdas: payload.ajustePerdas,
-
-      custo_base: payload.custoBase,
-      custo_total: payload.custoTotal,
-      preco: payload.preco,
-      lucro: payload.lucro,
-      margem_liq: payload.margemLiq,
-    };
-
-    try {
-      await addDoc(collection(db, "products"), {
-        ...row,
-        created_at: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error(error);
-      return alert("Erro ao salvar no Firebase: " + (error?.message || error));
-    }
-
-    alert("Produto salvo no banco (Firebase)!");
-    await carregarProdutosDoBanco();
+  async function arquivarProduto(id) {
+    const p = state.products.find((x) => x.id === id);
+    if (!p) return;
+    p.ativo = false;
+    p.updatedAt = new Date().toISOString();
+    if (USE_FIREBASE_PRODUCTS && db && p.id) await setDoc(doc(db, "products", p.id), p, { merge: true });
+    saveState();
+    renderProducts();
   }
 
-  document.getElementById("btnSalvarProduto").addEventListener("click", salvarProdutoAtual);
+  function duplicarProduto(id) {
+    const p = state.products.find((x) => x.id === id);
+    if (!p) return;
+    const novo = { ...structuredClone(p), id: null, sku: `${p.sku || "SKU"}-COPY`, nome: `${p.nome || "Produto"} (Cópia)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    editingProductId = null;
+    loadProductInForm(id);
+    produtoForm.nome.value = novo.nome;
+    produtoForm.sku.value = novo.sku;
+  }
 
-  document.getElementById("btnLimparProdutos").addEventListener("click", async () => {
-    if (!confirm("Tem certeza que deseja apagar TODOS os produtos?")) return;
-
-    if (USE_FIREBASE_PRODUCTS && db) {
-      try {
-        const snap = await getDocs(collection(db, "products"));
-        const batch = writeBatch(db);
-        snap.forEach((d) => batch.delete(d.ref));
-        await batch.commit();
-        await carregarProdutosDoBanco();
-      } catch (error) {
-        return alert("Erro ao limpar: " + (error?.message || error));
-      }
-    } else {
-      state.products = [];
-      saveState();
-      renderProducts();
-    }
+  document.getElementById("btnRecalcularProduto").addEventListener("click", () => {
+    const calc = computeProdutoFromForm();
+    if (!calc.nome || !calc.sku || !calc.categoria || !calc.woodId) return alert("Preencha Nome, SKU, Categoria e Madeira.");
+    lastProductCalc = calc;
+    document.getElementById("prodResumoCalc").innerHTML = `Custo total: <b>${fmtBRL(calc.custoTotal)}</b> | Preço sugerido: <b>${fmtBRL(calc.precoSugerido)}</b> | Lucro: <b>${fmtBRL(calc.lucro)}</b> | Margem líquida: <b>${fmtPct(calc.margemLiquida)}</b>`;
   });
 
+  document.getElementById("btnSalvarProdutoModulo").addEventListener("click", async () => {
+    const calc = lastProductCalc || computeProdutoFromForm();
+    if (!calc.nome || !calc.sku || !calc.categoria || !calc.woodId) return alert("Campos obrigatórios: nome, SKU, categoria e madeira.");
+    if (state.products.some((p) => p.sku === calc.sku && p.id !== editingProductId)) return alert("SKU já cadastrado. Use um SKU único.");
+
+    const now = new Date().toISOString();
+    const payload = { ...calc, createdAt: editingProductId ? (state.products.find(p=>p.id===editingProductId)?.createdAt || now) : now, updatedAt: now };
+
+    if (editingProductId) {
+      const i = state.products.findIndex((x) => x.id === editingProductId);
+      if (i >= 0) state.products[i] = { ...state.products[i], ...payload, id: editingProductId };
+      if (USE_FIREBASE_PRODUCTS && db) await setDoc(doc(db, "products", editingProductId), { ...payload }, { merge: true });
+    } else {
+      payload.id = crypto?.randomUUID?.() || String(Date.now());
+      state.products.unshift(payload);
+      if (USE_FIREBASE_PRODUCTS && db) await setDoc(doc(db, "products", payload.id), payload, { merge: true });
+    }
+
+    state.priceHistory = state.priceHistory || [];
+    state.priceHistory.push({
+      data: now,
+      nome: payload.nome,
+      sku: payload.sku,
+      custoTotal: payload.custoTotal,
+      preco: payload.precoSugerido,
+      margem: payload.margemLiquida,
+      canal: payload.canal,
+    });
+
+    saveState();
+    renderProducts();
+    renderHistorico();
+    resetProdutoForm();
+  });
+
+  document.getElementById("btnNovoProduto").addEventListener("click", resetProdutoForm);
+
+  document.getElementById("btnSalvarProduto").addEventListener("click", () => {
+    if (!lastCalc) return alert("Recalcule no Simulador antes de enviar para Produtos.");
+    tabButtons.forEach(b => b.classList.remove("active"));
+    document.querySelector('.tab[data-tab="prod"]').classList.add("active");
+    document.querySelectorAll("section[id^='tab-']").forEach(s => s.classList.add("hide"));
+    document.getElementById("tab-prod").classList.remove("hide");
+
+    produtoForm.nome.value = el.nome.value || lastCalc.nome || "";
+    produtoForm.sku.value = el.sku.value || lastCalc.sku || "";
+    produtoForm.categoria.value = "";
+    produtoForm.wood.value = lastCalc.wood || "";
+    produtoForm.comp.value = lastCalc.comp ?? "";
+    produtoForm.larg.value = lastCalc.larg ?? "";
+    produtoForm.pct.value = lastCalc.pctChapa ?? "";
+    produtoForm.corte.value = lastCalc.tCorte ?? "";
+    produtoForm.gravacao.value = lastCalc.tGrav ?? "";
+    produtoForm.montagem.value = lastCalc.tMont ?? "";
+    produtoForm.embalagem.value = lastCalc.embalagem ?? state.params.embalagem ?? 0;
+    produtoForm.canal.value = lastCalc.canal || "Shopee";
+    produtoForm.margem.value = lastCalc.margemUsada ?? state.params.margemDesejada ?? 0;
+  });
   // ====== PARAMETROS ======
   function loadParamsUI() {
     const p = state.params;
@@ -1098,13 +1175,16 @@
         params: obj.params || structuredClone(DEFAULT_DATA.params),
         sim: obj.sim || structuredClone(DEFAULT_DATA.sim),
         products: Array.isArray(obj.products) ? obj.products : structuredClone(DEFAULT_DATA.products),
+        priceHistory: Array.isArray(obj.priceHistory) ? obj.priceHistory : [],
       };
       saveState();
       // recarregar tudo
       loadSimInputsFromState();
       loadParamsUI();
       renderWoods();
+      fillProductWoodSelect();
       renderProducts();
+      renderHistorico();
       carregarProdutosDoBanco();
       calcSim();
       alert("Importado com sucesso!");
@@ -1120,7 +1200,9 @@
     loadSimInputsFromState();
     loadParamsUI();
     renderWoods();
+    fillProductWoodSelect();
     renderProducts();
+    renderHistorico();
     carregarProdutosDoBanco();
     calcSim();
   });
@@ -1129,7 +1211,10 @@
   loadSimInputsFromState();
   loadParamsUI();
   renderWoods();
+  fillProductWoodSelect();
+  resetProdutoForm();
   renderProducts();
+  renderHistorico();
   carregarProdutosDoBanco();
   calcSim();
 </script>
