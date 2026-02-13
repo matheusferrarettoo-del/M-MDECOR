@@ -61,6 +61,8 @@
     .manual ul,.manual ol{margin:8px 0 0 20px; padding:0;}
     .manual .checklist{display:grid; gap:8px; margin-top:10px;}
     .manual .check{background:#f9f2ec; border:1px solid var(--border); border-radius:12px; padding:8px 10px; font-weight:600; color:#7b6555;}
+    button.btn.primary.terracota{background:#c68463;border-color:#b97858;color:#fff;}
+    #catalogTable tbody tr.selected{background:#f7ece5;}
     @media (max-width: 880px){
       header{flex-direction:column; align-items:flex-start;}
       header h1{font-size:28px;}
@@ -282,51 +284,61 @@
 
   <!-- PRODUTOS -->
   <section id="tab-prod" class="hide">
-    <div class="card">
-      <h2>Produtos calculados</h2>
-      <div class="muted">Salve aqui os produtos que você já calculou no Simulador. Produtos são salvos no banco de dados (Firebase) e ficam disponíveis online.</div>
-
-      <div class="btnbar" style="margin-top:12px;">
-        <button class="btn danger" id="btnLimparProdutos">Limpar lista</button>
-        <span class="pill">Dica: use o botão <b>Salvar produto</b> no Simulador</span>
+    <div class="grid">
+      <div class="card">
+        <h2>Lista de Produtos</h2>
+        <div class="row"><label>Busca (Nome / SKU / categoria / espessura / canal)</label><input id="prod_search" type="text" placeholder="Digite para filtrar" /></div>
+        <div class="row"><label>Status</label><select id="prod_filter_status"><option value="all">Todos</option><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div>
+        <div class="row"><label>Categoria</label><input id="prod_filter_categoria" type="text" placeholder="Ex.: Festa" /></div>
+        <div class="row"><label>Espessura (mm)</label><input id="prod_filter_esp" type="number" step="1" placeholder="Ex.: 6" /></div>
+        <div class="row"><label>Ordenar por</label><select id="prod_sort"><option value="recent">Mais recentes</option><option value="lucro">Maior lucro</option><option value="margem">Maior margem</option></select></div>
+        <div class="btnbar"><button class="btn" id="prod_refresh">Atualizar lista</button><button class="btn" id="prod_batch_recalc">Recalcular em lote</button><button class="btn danger" id="prod_archive_selected">Arquivar selecionados</button></div>
+        <div style="margin-top:12px; overflow:auto;">
+          <table class="table" id="catalogTable">
+            <thead><tr><th></th><th>Nome</th><th>SKU</th><th>MDF/Esp.</th><th class="right">Custo total</th><th class="right">Preço sugerido</th><th class="right">Lucro</th><th class="right">Margem</th><th>Status</th><th class="right">Ações</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
 
-      <div style="margin-top:12px; overflow:auto;">
-        <table class="table" id="prodTable">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Nome</th>
-              <th>SKU</th>
-              <th>Madeira</th>
-              <th class="right">Comp. (mm)</th>
-              <th class="right">Larg. (mm)</th>
-              <th class="right">Área (cm²)</th>
-              <th class="right">% da chapa</th>
-              <th class="right">Corte (min)</th>
-              <th class="right">Grav. (min)</th>
-              <th class="right">Mont. (min)</th>
-              <th class="right">MDF (R$)</th>
-              <th class="right">Laser (R$)</th>
-              <th class="right">Mão de obra (R$)</th>
-              <th class="right">Overhead (R$)</th>
-              <th class="right">Embalagem (R$)</th>
-              <th class="right">Perdas (R$)</th>
-              <th class="right"><b>Custo total (R$)</b></th>
-              <th class="right"><b>Preço (R$)</b></th>
-              <th>Canal</th>
-              <th class="right">Taxa</th>
-              <th class="right">Margem</th>
-              <th class="right">Lucro (R$)</th>
-              <th class="right">Margem liq.</th>
-              <th class="right">Ações</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <div class="card">
+        <h2>Ficha Técnica + Precificação</h2>
+        <div class="row"><label>Nome*</label><input id="pf_nome" type="text" /></div>
+        <div class="row"><label>SKU*</label><input id="pf_sku" type="text" /></div>
+        <div class="row"><label>Categoria</label><input id="pf_categoria" type="text" /></div>
+        <div class="row"><label>Tags (vírgula)</label><input id="pf_tags" type="text" /></div>
+        <div class="row"><label>Ativo</label><select id="pf_ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+        <div class="row"><label>Madeira</label><select id="pf_wood"></select></div>
+        <div class="row"><label>Espessura (mm)</label><input id="pf_esp" type="number" /></div>
+        <div class="row"><label>Comprimento (cm)</label><input id="pf_comp" type="number" step="0.01" /></div>
+        <div class="row"><label>Largura (cm)</label><input id="pf_larg" type="number" step="0.01" /></div>
+        <div class="row"><label>% da chapa (override)</label><input id="pf_pct" type="number" step="0.01" /></div>
+        <div class="row"><label>Tempo corte (min)</label><input id="pf_tc" type="number" step="0.01" /></div>
+        <div class="row"><label>Tempo gravação (min)</label><input id="pf_tg" type="number" step="0.01" /></div>
+        <div class="row"><label>Tempo montagem (min)</label><input id="pf_tm" type="number" step="0.01" /></div>
+        <div class="row"><label>Canal padrão</label><select id="pf_canal"><option>Shopee</option><option>Mercado Livre</option><option>TikTok</option></select></div>
+        <div class="row"><label>Margem desejada (%)</label><input id="pf_margem" type="number" step="0.01" /></div>
+        <div class="row"><label>Arquivo de corte (nome/url/versão)</label><input id="pf_arquivo" type="text" placeholder="nome | url | v1" /></div>
+        <div class="row"><label>Observações técnicas</label><textarea id="pf_obs" rows="2"></textarea></div>
+        <div class="row"><label>Checklist de qualidade (pontos críticos)</label><textarea id="pf_qualidade" rows="2" placeholder="Peça delicada, verificar bordas..."></textarea></div>
+        <div class="row"><label>Insumos (nome|un|qtd|custo unit por linha)</label><textarea id="pf_insumos" rows="3" placeholder="cola|ml|10|0.03"></textarea></div>
+        <div class="row"><label>Embalagem (tipo|custo)</label><input id="pf_emb" type="text" placeholder="caixa|1.50" /></div>
+        <div class="btnbar">
+          <button class="btn primary terracota" id="pf_calcular">Calcular</button>
+          <button class="btn accent" id="pf_salvar">Salvar</button>
+          <button class="btn" id="pf_duplicar">Duplicar</button>
+          <button class="btn danger" id="pf_arquivar">Arquivar</button>
+          <button class="btn" id="pf_novo">Novo</button>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><div class="t">Custo total</div><div class="v" id="pf_k_custo">—</div></div>
+          <div class="kpi"><div class="t">Preço sugerido</div><div class="v" id="pf_k_preco">—</div></div>
+          <div class="kpi"><div class="t">Lucro</div><div class="v" id="pf_k_lucro">—</div></div>
+          <div class="kpi"><div class="t">Margem líquida</div><div class="v" id="pf_k_margem">—</div></div>
+        </div>
+        <h2 style="margin-top:14px;">Histórico de preço</h2>
+        <div id="pf_history" class="note">Sem revisões ainda.</div>
       </div>
-
-      <div class="footer">Os valores salvos são os mesmos do detalhamento do Simulador: MDF, Laser (tempo de corte + gravação), mão de obra (montagem/acabamento), overhead, embalagem e ajuste de perdas.</div>
     </div>
   </section>
 
@@ -465,6 +477,8 @@
     orderBy,
     query,
     serverTimestamp,
+    setDoc,
+    updateDoc,
     writeBatch,
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
   // ====== DADOS INICIAIS (da planilha) ======
@@ -531,7 +545,7 @@
     const t = btn.dataset.tab;
     document.querySelectorAll("section[id^='tab-']").forEach(s => s.classList.add("hide"));
     document.getElementById("tab-" + t).classList.remove("hide");
-    if (t === "prod") carregarProdutosDoBanco();
+    if (t === "prod") loadCatalog();
   }));
 
   // ====== Helpers ======
@@ -798,6 +812,7 @@
         }
         saveState();
         fillSimSelect();
+        fillProductWoodSelect();
         calcSim();
         renderWoods(); // re-render pra atualizar área/custo
       });
@@ -824,220 +839,328 @@
     saveState();
     renderWoods();
     fillSimSelect();
+    fillProductWoodSelect();
   });
 
 
 
-  // ====== PRODUTOS (lista de produtos calculados) ======
-  const prodBody = document.querySelector("#prodTable tbody");
+  // ====== PRODUTOS (Ficha técnica + precificação) ======
+  let productCatalog = [];
+  let currentProductId = null;
+  let currentSnapshot = null;
 
-  function fmtDT(iso) {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-    } catch(e) { return iso || "—"; }
+  const prodEls = {
+    body: document.querySelector("#catalogTable tbody"),
+    search: document.getElementById("prod_search"),
+    status: document.getElementById("prod_filter_status"),
+    categoria: document.getElementById("prod_filter_categoria"),
+    esp: document.getElementById("prod_filter_esp"),
+    sort: document.getElementById("prod_sort"),
+    refresh: document.getElementById("prod_refresh"),
+    recalc: document.getElementById("prod_batch_recalc"),
+    archiveSelected: document.getElementById("prod_archive_selected"),
+    nome: document.getElementById("pf_nome"),
+    sku: document.getElementById("pf_sku"),
+    categoriaField: document.getElementById("pf_categoria"),
+    tags: document.getElementById("pf_tags"),
+    ativo: document.getElementById("pf_ativo"),
+    wood: document.getElementById("pf_wood"),
+    espField: document.getElementById("pf_esp"),
+    comp: document.getElementById("pf_comp"),
+    larg: document.getElementById("pf_larg"),
+    pct: document.getElementById("pf_pct"),
+    tc: document.getElementById("pf_tc"),
+    tg: document.getElementById("pf_tg"),
+    tm: document.getElementById("pf_tm"),
+    canal: document.getElementById("pf_canal"),
+    margem: document.getElementById("pf_margem"),
+    arquivo: document.getElementById("pf_arquivo"),
+    obs: document.getElementById("pf_obs"),
+    qualidade: document.getElementById("pf_qualidade"),
+    insumos: document.getElementById("pf_insumos"),
+    emb: document.getElementById("pf_emb"),
+    kCusto: document.getElementById("pf_k_custo"),
+    kPreco: document.getElementById("pf_k_preco"),
+    kLucro: document.getElementById("pf_k_lucro"),
+    kMargem: document.getElementById("pf_k_margem"),
+    history: document.getElementById("pf_history"),
+  };
+
+  function fillProductWoodSelect() {
+    if (!prodEls.wood) return;
+    prodEls.wood.innerHTML = "";
+    state.woods.forEach(w => {
+      const op = document.createElement("option");
+      op.value = w.name;
+      op.textContent = w.name;
+      prodEls.wood.appendChild(op);
+    });
   }
 
-  function ensureProducts() {
-    if (!Array.isArray(state.products)) state.products = structuredClone(DEFAULT_DATA.products);
+  function parseInsumos(raw) {
+    return (raw || "").split("\n").map(l => l.trim()).filter(Boolean).map((line) => {
+      const [nome, unidade, qtd, custo] = line.split("|").map(x => (x || "").trim());
+      return { nome, unidade: unidade || "un", qtd: n(qtd) ?? 0, custoUnit: n(custo) ?? 0 };
+    });
   }
 
-  async function carregarProdutosDoBanco() {
-    if (!USE_FIREBASE_PRODUCTS || !db) return;
-    try {
-      const productsRef = collection(db, "products");
-      const productsQuery = query(productsRef, orderBy("created_at", "desc"));
-      const snap = await getDocs(productsQuery);
-
-      state.products = snap.docs.map((d) => {
-        const row = d.data();
-        return {
-          id: d.id,
-          ts: row.created_at?.toDate?.()?.toISOString?.() || null,
-      nome: row.nome ?? null,
-      sku: row.sku ?? null,
-      wood: row.wood ?? null,
-      canal: row.canal ?? null,
-      taxaCanal: row.taxa_canal ?? row.taxaCanal ?? 0,
-      margemUsada: row.margem_usada ?? row.margemUsada ?? 0,
-      comp: row.comp ?? null,
-      larg: row.larg ?? null,
-      areaCm2: row.area_cm2 ?? row.areaCm2 ?? null,
-      pctChapa: row.pct_chapa ?? row.pctChapa ?? null,
-      tCorte: row.t_corte ?? row.tCorte ?? 0,
-      tGrav: row.t_grav ?? row.tGrav ?? 0,
-      tMont: row.t_mont ?? row.tMont ?? 0,
-      custoMdf: row.custo_mdf ?? row.custoMdf ?? 0,
-      custoLaser: row.custo_laser ?? row.custoLaser ?? 0,
-      custoMao: row.custo_mao ?? row.custoMao ?? 0,
-      overhead: row.overhead ?? 0,
-      embalagem: row.embalagem ?? 0,
-      perdasPct: row.perdas_pct ?? row.perdasPct ?? 0,
-      ajustePerdas: row.ajuste_perdas ?? row.ajustePerdas ?? 0,
-      custoBase: row.custo_base ?? row.custoBase ?? 0,
-      custoTotal: row.custo_total ?? row.custoTotal ?? 0,
-      preco: row.preco ?? null,
-      lucro: row.lucro ?? null,
-          margemLiq: row.margem_liq ?? row.margemLiq ?? null,
-        };
-      });
-
-      renderProducts();
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao carregar Produtos do Firebase: " + (error?.message || error));
-    }
+  function parseEmbalagem(raw) {
+    const [tipo, custo] = (raw || "").split("|").map(x => (x || "").trim());
+    return { tipo: tipo || "caixa", custo: n(custo) ?? 0 };
   }
 
-  function renderProducts() {
-    ensureProducts();
-    if (!prodBody) return;
-    prodBody.innerHTML = "";
+  function collectProductDraft() {
+    const [arquivoNome, arquivoUrl, arquivoVersao] = (prodEls.arquivo.value || "").split("|").map(x => (x || "").trim());
+    return {
+      id: currentProductId,
+      nome: (prodEls.nome.value || "").trim(),
+      sku: (prodEls.sku.value || "").trim(),
+      categoria: (prodEls.categoriaField.value || "").trim(),
+      tags: (prodEls.tags.value || "").split(",").map(t => t.trim()).filter(Boolean),
+      ativo: prodEls.ativo.value === "true",
+      woodNome: prodEls.wood.value,
+      espessura: n(prodEls.espField.value),
+      dimensoes: { comp: n(prodEls.comp.value), larg: n(prodEls.larg.value), pctChapaOverride: n(prodEls.pct.value) },
+      temposPadrao: { corteMin: n(prodEls.tc.value) ?? 0, gravacaoMin: n(prodEls.tg.value) ?? 0, montagemMin: n(prodEls.tm.value) ?? 0 },
+      canalPadrao: prodEls.canal.value,
+      margemDesejada: n(prodEls.margem.value),
+      arquivo: { nome: arquivoNome || null, url: arquivoUrl || null, versao: arquivoVersao || null },
+      observacoesTecnicas: prodEls.obs.value || "",
+      qualidade: { checklist: ["corte ok","lixa ok","montagem ok","acabamento ok","embalagem ok"], pontosCriticos: prodEls.qualidade.value || "" },
+      insumos: parseInsumos(prodEls.insumos.value),
+      embalagem: parseEmbalagem(prodEls.emb.value),
+    };
+  }
 
-    if (state.products.length === 0) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="25" class="muted">Nenhum produto salvo ainda. Vá ao <b>Simulador</b> e clique em <b>Salvar produto</b>.</td>`;
-      prodBody.appendChild(tr);
+  function calculateProductPricing(draft) {
+    const w = woodComputed(getWoodByName(draft.woodNome) || {});
+    const areaCm2 = (n(draft.dimensoes.comp) && n(draft.dimensoes.larg)) ? (n(draft.dimensoes.comp) * n(draft.dimensoes.larg)) : null;
+    const pct = n(draft.dimensoes.pctChapaOverride);
+    const custoMdf = (pct !== null && w.price) ? (w.price * (pct / 100)) : (areaCm2 && w.costm2 ? (areaCm2 / 10000) * w.costm2 : 0);
+    const custoLaser = ((n(draft.temposPadrao.corteMin) ?? 0) + (n(draft.temposPadrao.gravacaoMin) ?? 0)) / 60 * (n(state.params.custoHoraLaser) ?? 0);
+    const custoMao = (n(draft.temposPadrao.montagemMin) ?? 0) / 60 * (n(state.params.custoMaoObra) ?? 0);
+    const custoInsumos = (draft.insumos || []).reduce((acc, i) => acc + ((n(i.qtd) ?? 0) * (n(i.custoUnit) ?? 0)), 0);
+    const custoEmbalagem = n(draft.embalagem?.custo) ?? (n(state.params.embalagem) ?? 0);
+    const subtotal = custoMdf + custoLaser + custoMao + custoInsumos + custoEmbalagem;
+    const perdasRate = (n(state.params.perdasPct) ?? 0) / 100;
+    const overheadRate = (n(state.params.overheadPct) ?? n(state.params.overhead) ?? 0) / 100;
+    const ajustePerdas = subtotal * perdasRate;
+    const overheadValor = subtotal * overheadRate;
+    const custoTotal = subtotal + ajustePerdas + overheadValor;
+    const taxaUsada = (n(state.params.taxas?.[draft.canalPadrao]) ?? 0) / 100;
+    const margemUsada = (n(draft.margemDesejada) ?? n(state.params.margemDesejada) ?? 0) / 100;
+    const divisor = 1 - taxaUsada - margemUsada;
+    const preco = divisor > 0 ? (custoTotal / divisor) : null;
+    const lucro = preco ? (preco * (1 - taxaUsada) - custoTotal) : null;
+    const margemLiq = (preco && lucro !== null) ? (lucro / preco) : null;
+    return {
+      custo_mdf: custoMdf,
+      custo_laser: custoLaser,
+      custo_mao_obra: custoMao,
+      custo_insumos: custoInsumos,
+      ajuste_perdas: ajustePerdas,
+      overhead_valor: overheadValor,
+      custo_total: custoTotal,
+      preco_sugerido: preco,
+      lucro,
+      margem_liquida: margemLiq,
+      data_calculo: new Date().toISOString(),
+      canal_usado: draft.canalPadrao,
+      taxa_usada: taxaUsada,
+      margem_usada: margemUsada,
+      areaCm2,
+      pct,
+    };
+  }
+
+  function renderProductKPIs(snapshot) {
+    prodEls.kCusto.textContent = fmtBRL(snapshot?.custo_total);
+    prodEls.kPreco.textContent = fmtBRL(snapshot?.preco_sugerido);
+    prodEls.kLucro.textContent = fmtBRL(snapshot?.lucro);
+    prodEls.kMargem.textContent = fmtPct(snapshot?.margem_liquida);
+  }
+
+  async function fetchPricingHistory(productId) {
+    if (!USE_FIREBASE_PRODUCTS || !db || !productId) return [];
+    const snap = await getDocs(collection(db, "products", productId, "pricing_history"));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => String(b.data_calculo||"").localeCompare(String(a.data_calculo||"")));
+  }
+
+  function renderHistory(history) {
+    if (!history?.length) {
+      prodEls.history.textContent = "Sem revisões ainda.";
       return;
     }
+    prodEls.history.innerHTML = history.slice(0, 5).map(h => `${new Date(h.data_calculo).toLocaleString("pt-BR")}: custo ${fmtBRL(h.custo_total)} → preço ${fmtBRL(h.preco_sugerido)}`).join("<br>");
+  }
 
-    state.products.forEach((p) => {
+  function renderCatalog() {
+    if (!prodEls.body) return;
+    const q = (prodEls.search.value || "").toLowerCase();
+    const fStatus = prodEls.status.value;
+    const fCat = (prodEls.categoria.value || "").toLowerCase();
+    const fEsp = n(prodEls.esp.value);
+    let rows = productCatalog.filter(p => {
+      const hit = [p.nome, p.sku, p.categoria, p.espessura, p.precificacaoAtual?.canal_usado].join(" ").toLowerCase().includes(q);
+      const okStatus = fStatus === "all" || (fStatus === "active" ? !!p.ativo : !p.ativo);
+      const okCat = !fCat || (p.categoria || "").toLowerCase().includes(fCat);
+      const okEsp = fEsp === null || Number(p.espessura) === Number(fEsp);
+      return hit && okStatus && okCat && okEsp;
+    });
+    if (prodEls.sort.value === "lucro") rows.sort((a,b)=>(b.precificacaoAtual?.lucro||0)-(a.precificacaoAtual?.lucro||0));
+    else if (prodEls.sort.value === "margem") rows.sort((a,b)=>(b.precificacaoAtual?.margem_liquida||0)-(a.precificacaoAtual?.margem_liquida||0));
+    else rows.sort((a,b)=>String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));
+
+    prodEls.body.innerHTML = "";
+    if (!rows.length) {
+      prodEls.body.innerHTML = '<tr><td colspan="10" class="muted">Nenhum produto encontrado.</td></tr>';
+      return;
+    }
+    rows.forEach(p => {
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${fmtDT(p.ts)}</td>
-        <td>${(p.nome ?? "—")}</td>
-        <td>${(p.sku ?? "—")}</td>
-        <td>${(p.wood ?? "—")}</td>
-        <td class="right">${fmtNum(p.comp ?? null, 0)}</td>
-        <td class="right">${fmtNum(p.larg ?? null, 0)}</td>
-        <td class="right">${fmtNum(p.areaCm2 ?? null, 2)}</td>
-        <td class="right">${fmtPct(p.pctChapa ?? null)}</td>
-        <td class="right">${fmtNum(p.tCorte ?? null, 2)}</td>
-        <td class="right">${fmtNum(p.tGrav ?? null, 2)}</td>
-        <td class="right">${fmtNum(p.tMont ?? null, 2)}</td>
-        <td class="right">${fmtBRL(p.custoMdf ?? 0)}</td>
-        <td class="right">${fmtBRL(p.custoLaser ?? 0)}</td>
-        <td class="right">${fmtBRL(p.custoMao ?? 0)}</td>
-        <td class="right">${fmtBRL(p.overhead ?? 0)}</td>
-        <td class="right">${fmtBRL(p.embalagem ?? 0)}</td>
-        <td class="right">${fmtBRL(p.ajustePerdas ?? 0)}</td>
-        <td class="right"><b>${fmtBRL(p.custoTotal ?? 0)}</b></td>
-        <td class="right"><b>${fmtBRL(p.preco ?? null)}</b></td>
-        <td>${(p.canal ?? "—")}</td>
-        <td class="right">${((Number(p.taxaCanal ?? 0))/100).toLocaleString("pt-BR", {style:"percent", maximumFractionDigits:2})}</td>
-        <td class="right">${((Number(p.margemUsada ?? 0))/100).toLocaleString("pt-BR", {style:"percent", maximumFractionDigits:2})}</td>
-        <td class="right">${fmtBRL(p.lucro ?? null)}</td>
-        <td class="right">${(p.margemLiq == null) ? "—" : fmtPct(p.margemLiq)}</td>
-        <td class="right"><button class="btn danger" data-pdel="${p.id || ""}">Excluir</button></td>
-      `;
-      prodBody.appendChild(tr);
+      tr.innerHTML = `<td><input type="checkbox" data-select="${p.id}"></td><td>${p.nome || "—"}</td><td>${p.sku || "—"}</td><td>${p.woodNome || "—"} / ${p.espessura || "—"}mm</td><td class="right">${fmtBRL(p.precificacaoAtual?.custo_total)}</td><td class="right">${fmtBRL(p.precificacaoAtual?.preco_sugerido)}</td><td class="right">${fmtBRL(p.precificacaoAtual?.lucro)}</td><td class="right">${fmtPct(p.precificacaoAtual?.margem_liquida)}</td><td>${p.ativo ? "ativo" : "inativo"}</td><td class="right"><button class="btn" data-open="${p.id}">Abrir</button> <button class="btn" data-dup="${p.id}">Duplicar</button> <button class="btn danger" data-arc="${p.id}">Arquivar</button></td>`;
+      prodEls.body.appendChild(tr);
     });
 
-    prodBody.querySelectorAll("button[data-pdel]").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const id = (btn.dataset.pdel || "").trim();
-        if (!id) return alert("Sem ID para excluir. Recarregue a lista.");
-        if (!confirm("Excluir este produto do banco?")) return;
-
-        if (USE_FIREBASE_PRODUCTS && db) {
-          try {
-            await deleteDoc(doc(db, "products", id));
-            await carregarProdutosDoBanco();
-          } catch (error) {
-            return alert("Erro ao excluir: " + (error?.message || error));
-          }
-        } else {
-          state.products = state.products.filter(x => x.id !== id);
-          saveState();
-          renderProducts();
-        }
-      });
-    });
+    prodEls.body.querySelectorAll("button[data-open]").forEach(b => b.onclick = () => openProduct(b.dataset.open));
+    prodEls.body.querySelectorAll("button[data-dup]").forEach(b => b.onclick = () => duplicateProduct(b.dataset.dup));
+    prodEls.body.querySelectorAll("button[data-arc]").forEach(b => b.onclick = () => archiveProduct(b.dataset.arc));
   }
 
-  async function salvarProdutoAtual() {
-    ensureProducts();
-    if (!lastCalc) return alert("Recalcule o Simulador antes de salvar.");
-
-    const payload = structuredClone(lastCalc);
-    payload.nome = (el.nome?.value ?? "").trim() || payload.nome || null;
-    payload.sku = (el.sku?.value ?? "").trim() || payload.sku || null;
-
-    if (!USE_FIREBASE_PRODUCTS || !db) {
-      payload.id = crypto?.randomUUID?.() || String(Date.now());
-      state.products.push(payload);
-      saveState();
-      renderProducts();
-      return alert("Produto salvo localmente (sem Firebase).");
-    }
-
-    const row = {
-      nome: payload.nome,
-      sku: payload.sku,
-      wood: payload.wood,
-      canal: payload.canal,
-
-      taxa_canal: payload.taxaCanal,
-      margem_usada: payload.margemUsada,
-
-      comp: payload.comp,
-      larg: payload.larg,
-      area_cm2: payload.areaCm2,
-      pct_chapa: payload.pctChapa,
-
-      t_corte: payload.tCorte,
-      t_grav: payload.tGrav,
-      t_mont: payload.tMont,
-
-      custo_mdf: payload.custoMdf,
-      custo_laser: payload.custoLaser,
-      custo_mao: payload.custoMao,
-      overhead: payload.overhead,
-      embalagem: payload.embalagem,
-      perdas_pct: payload.perdasPct,
-      ajuste_perdas: payload.ajustePerdas,
-
-      custo_base: payload.custoBase,
-      custo_total: payload.custoTotal,
-      preco: payload.preco,
-      lucro: payload.lucro,
-      margem_liq: payload.margemLiq,
-    };
-
-    try {
-      await addDoc(collection(db, "products"), {
-        ...row,
-        created_at: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error(error);
-      return alert("Erro ao salvar no Firebase: " + (error?.message || error));
-    }
-
-    alert("Produto salvo no banco (Firebase)!");
-    await carregarProdutosDoBanco();
+  async function loadCatalog() {
+    if (!USE_FIREBASE_PRODUCTS || !db) return;
+    const snap = await getDocs(collection(db, "products"));
+    productCatalog = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderCatalog();
   }
 
-  document.getElementById("btnSalvarProduto").addEventListener("click", salvarProdutoAtual);
+  function fillProductForm(p = null) {
+    currentProductId = p?.id || null;
+    currentSnapshot = p?.precificacaoAtual || null;
+    prodEls.nome.value = p?.nome || "";
+    prodEls.sku.value = p?.sku || "";
+    prodEls.categoriaField.value = p?.categoria || "";
+    prodEls.tags.value = (p?.tags || []).join(", ");
+    prodEls.ativo.value = String(p?.ativo ?? true);
+    prodEls.wood.value = p?.woodNome || (state.woods[0]?.name || "");
+    prodEls.espField.value = p?.espessura ?? "";
+    prodEls.comp.value = p?.dimensoes?.comp ?? "";
+    prodEls.larg.value = p?.dimensoes?.larg ?? "";
+    prodEls.pct.value = p?.dimensoes?.pctChapaOverride ?? "";
+    prodEls.tc.value = p?.temposPadrao?.corteMin ?? "";
+    prodEls.tg.value = p?.temposPadrao?.gravacaoMin ?? "";
+    prodEls.tm.value = p?.temposPadrao?.montagemMin ?? "";
+    prodEls.canal.value = p?.canalPadrao || "Shopee";
+    prodEls.margem.value = p?.margemDesejada ?? "";
+    prodEls.arquivo.value = [p?.arquivo?.nome || "", p?.arquivo?.url || "", p?.arquivo?.versao || ""].join(" | ");
+    prodEls.obs.value = p?.observacoesTecnicas || "";
+    prodEls.qualidade.value = p?.qualidade?.pontosCriticos || "";
+    prodEls.insumos.value = (p?.insumos || []).map(i => `${i.nome}|${i.unidade}|${i.qtd}|${i.custoUnit ?? 0}`).join("
+");
+    prodEls.emb.value = `${p?.embalagem?.tipo || "caixa"}|${p?.embalagem?.custo ?? 0}`;
+    renderProductKPIs(currentSnapshot);
+  }
 
-  document.getElementById("btnLimparProdutos").addEventListener("click", async () => {
-    if (!confirm("Tem certeza que deseja apagar TODOS os produtos?")) return;
+  async function openProduct(id) {
+    const product = productCatalog.find(p => p.id === id);
+    if (!product) return;
+    fillProductForm(product);
+    const history = await fetchPricingHistory(id);
+    renderHistory(history);
+  }
+
+  async function saveProduct() {
+    const draft = collectProductDraft();
+    if (!draft.nome || !draft.sku) return alert("Nome e SKU são obrigatórios.");
+    const skuConflict = productCatalog.find(p => p.sku === draft.sku && p.id !== currentProductId);
+    if (skuConflict) return alert("SKU já existe. Use um SKU único.");
+    const snapshot = currentSnapshot || calculateProductPricing(draft);
+    const payload = { ...draft, precificacaoAtual: snapshot, updatedAt: new Date().toISOString(), createdAt: draft.id ? (productCatalog.find(p => p.id === draft.id)?.createdAt || new Date().toISOString()) : new Date().toISOString() };
 
     if (USE_FIREBASE_PRODUCTS && db) {
-      try {
-        const snap = await getDocs(collection(db, "products"));
-        const batch = writeBatch(db);
-        snap.forEach((d) => batch.delete(d.ref));
-        await batch.commit();
-        await carregarProdutosDoBanco();
-      } catch (error) {
-        return alert("Erro ao limpar: " + (error?.message || error));
+      const ref = draft.id ? doc(db, "products", draft.id) : doc(collection(db, "products"));
+      await setDoc(ref, payload, { merge: true });
+      currentProductId = ref.id;
+      if (!draft.id || snapshot === currentSnapshot) {
+        await addDoc(collection(db, "products", ref.id, "pricing_history"), snapshot);
       }
-    } else {
-      state.products = [];
-      saveState();
-      renderProducts();
     }
+    await loadCatalog();
+    alert("Produto salvo com sucesso.");
+  }
+
+  function calculateInForm() {
+    const draft = collectProductDraft();
+    currentSnapshot = calculateProductPricing(draft);
+    renderProductKPIs(currentSnapshot);
+  }
+
+  async function archiveProduct(id = null) {
+    const targetId = id || currentProductId;
+    if (!targetId) return;
+    if (USE_FIREBASE_PRODUCTS && db) {
+      await updateDoc(doc(db, "products", targetId), { ativo: false, updatedAt: new Date().toISOString() });
+    }
+    await loadCatalog();
+    if (!id) fillProductForm();
+  }
+
+  async function duplicateProduct(id = null) {
+    const source = id ? productCatalog.find(p => p.id === id) : collectProductDraft();
+    if (!source) return;
+    const clone = structuredClone(source);
+    delete clone.id;
+    clone.nome = `${clone.nome || "Produto"} (cópia)`;
+    clone.sku = `${clone.sku || "SKU"}-COPIA-${Date.now().toString().slice(-4)}`;
+    clone.createdAt = new Date().toISOString();
+    clone.updatedAt = new Date().toISOString();
+    if (USE_FIREBASE_PRODUCTS && db) {
+      const ref = doc(collection(db, "products"));
+      await setDoc(ref, clone);
+      if (clone.precificacaoAtual) await addDoc(collection(db, "products", ref.id, "pricing_history"), clone.precificacaoAtual);
+    }
+    await loadCatalog();
+  }
+
+  async function batchRecalc() {
+    for (const p of productCatalog) {
+      const snapshot = calculateProductPricing(p);
+      await updateDoc(doc(db, "products", p.id), { precificacaoAtual: snapshot, updatedAt: new Date().toISOString() });
+      await addDoc(collection(db, "products", p.id, "pricing_history"), snapshot);
+    }
+    await loadCatalog();
+    alert("Recalculo em lote concluído.");
+  }
+
+  async function archiveSelected() {
+    const ids = Array.from(prodEls.body.querySelectorAll("input[data-select]:checked")).map(i => i.dataset.select);
+    for (const id of ids) {
+      await updateDoc(doc(db, "products", id), { ativo: false, updatedAt: new Date().toISOString() });
+    }
+    await loadCatalog();
+  }
+
+  [prodEls.search, prodEls.status, prodEls.categoria, prodEls.esp, prodEls.sort].forEach(elm => elm?.addEventListener("input", renderCatalog));
+  prodEls.refresh?.addEventListener("click", loadCatalog);
+  prodEls.recalc?.addEventListener("click", batchRecalc);
+  prodEls.archiveSelected?.addEventListener("click", archiveSelected);
+  document.getElementById("pf_calcular").addEventListener("click", calculateInForm);
+  document.getElementById("pf_salvar").addEventListener("click", saveProduct);
+  document.getElementById("pf_duplicar").addEventListener("click", () => duplicateProduct());
+  document.getElementById("pf_arquivar").addEventListener("click", () => archiveProduct());
+  document.getElementById("pf_novo").addEventListener("click", () => fillProductForm());
+  document.getElementById("btnSalvarProduto")?.addEventListener("click", async () => {
+    if (!prodEls.nome.value) prodEls.nome.value = el.nome.value || "Produto do simulador";
+    if (!prodEls.sku.value) prodEls.sku.value = el.sku.value || "";
+    if (!prodEls.wood.value) prodEls.wood.value = el.wood.value || "";
+    if (!prodEls.comp.value) prodEls.comp.value = el.comp.value || "";
+    if (!prodEls.larg.value) prodEls.larg.value = el.larg.value || "";
+    if (!prodEls.pct.value) prodEls.pct.value = el.pct.value || "";
+    if (!prodEls.tc.value) prodEls.tc.value = el.corte.value || "";
+    if (!prodEls.tg.value) prodEls.tg.value = el.grav.value || "";
+    if (!prodEls.tm.value) prodEls.tm.value = el.mont.value || "";
+    calculateInForm();
+    await saveProduct();
   });
 
   // ====== PARAMETROS ======
@@ -1104,8 +1227,7 @@
       loadSimInputsFromState();
       loadParamsUI();
       renderWoods();
-      renderProducts();
-      carregarProdutosDoBanco();
+      loadCatalog();
       calcSim();
       alert("Importado com sucesso!");
     } catch(e) {
@@ -1120,8 +1242,7 @@
     loadSimInputsFromState();
     loadParamsUI();
     renderWoods();
-    renderProducts();
-    carregarProdutosDoBanco();
+    loadCatalog();
     calcSim();
   });
 
@@ -1129,8 +1250,9 @@
   loadSimInputsFromState();
   loadParamsUI();
   renderWoods();
-  renderProducts();
-  carregarProdutosDoBanco();
+  fillProductWoodSelect();
+  fillProductForm();
+  loadCatalog();
   calcSim();
 </script>
 </body>
