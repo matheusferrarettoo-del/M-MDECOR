@@ -50,11 +50,16 @@
     .table th{text-align:left; color:var(--muted); background:#fcf7f2; font-weight:700}
     .table tr:last-child td{border-bottom:none}
     .pill{display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); color:var(--muted);}
+    .pill.low{background:#fbe9e9; color:#a55b5b; border-color:#efcaca;}
+    .pill.ok{background:#edf5ea; color:#5f7f56; border-color:#d5e5cf;}
     .right{text-align:right}
     .hide{display:none}
     .note{padding:10px 12px; border:1px dashed #decab8; border-radius:14px; background:#fff8f1; color:#8f7563; font-size:12px; line-height:1.4;}
     .footer{margin-top:16px; color:var(--muted); font-size:12px}
     a{color:#8f7a69}
+    .summary-cards{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:12px;}
+    @media (max-width: 980px){ .summary-cards{grid-template-columns:repeat(2,1fr);} }
+    @media (max-width: 560px){ .summary-cards{grid-template-columns:1fr;} }
     .manual h2{font-size:22px; color:#7b6555; margin:0 0 8px;}
     .manual h3{font-size:17px; color:#8d705d; margin:16px 0 8px;}
     .manual p,.manual li{font-size:14px; line-height:1.5; color:#6f5b4f;}
@@ -92,6 +97,7 @@
   <button class="tab" data-tab="madeiras">Madeiras</button>
   <button class="tab" data-tab="param">Parâmetros</button>
   <button class="tab" data-tab="prod">Produtos</button>
+  <button class="tab" data-tab="estoque">Estoque</button>
   <button class="tab" data-tab="manual">Manual</button>
   <button class="tab" data-tab="backup">Backup</button>
 </div>
@@ -346,6 +352,80 @@
     </div>
   </section>
 
+  <!-- ESTOQUE -->
+  <section id="tab-estoque" class="hide">
+    <div class="summary-cards">
+      <div class="kpi">
+        <div class="t">Total chapas MDF em estoque</div>
+        <div class="v" id="invTotalMdf">—</div>
+      </div>
+      <div class="kpi">
+        <div class="t">Total embalagens disponíveis</div>
+        <div class="v" id="invTotalEmb">—</div>
+      </div>
+      <div class="kpi">
+        <div class="t">Alertas de estoque baixo</div>
+        <div class="v" id="invAlerts">—</div>
+      </div>
+      <div class="kpi">
+        <div class="t">Última atualização</div>
+        <div class="v" id="invUpdated" style="font-size:16px;">—</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Lista de Materiais</h2>
+        <div class="muted">Controle simples de MDF e embalagens com status automático de estoque mínimo.</div>
+        <div class="btnbar">
+          <button class="btn primary" id="btnAddInventoryItem">Adicionar material</button>
+        </div>
+        <div style="margin-top:12px; overflow:auto;">
+          <table class="table" id="invItemsTable">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th class="right">Esp. (mm)</th>
+                <th class="right">Dimensão</th>
+                <th class="right">Qtd atual</th>
+                <th class="right">Estoque mín.</th>
+                <th class="right">Valor un.</th>
+                <th class="right">Custo médio</th>
+                <th>Status</th>
+                <th class="right">Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Movimentação de Estoque</h2>
+        <div class="row"><label>Tipo</label><select id="invMovType"><option value="entrada">Entrada</option><option value="saida">Saída</option></select></div>
+        <div class="row"><label>Material</label><select id="invMovItem"></select></div>
+        <div class="row"><label>Quantidade</label><input id="invMovQty" type="number" step="0.01" /></div>
+        <div class="row"><label>Motivo</label><select id="invMovReason"><option>Compra</option><option>Produção</option><option>Ajuste manual</option><option>Perda</option></select></div>
+        <div class="row" style="grid-template-columns:1fr;"><label>Observação</label><textarea id="invMovObs" rows="2" placeholder="Opcional"></textarea></div>
+        <div class="btnbar">
+          <button class="btn primary" id="btnAddInventoryMovement">Adicionar Entrada/Saída</button>
+        </div>
+        <div class="note">Saída automática por OP: use o botão <b>Gerar OP</b> na aba Produtos para debitar MDF proporcional (% da chapa) e embalagem automaticamente.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h2>Histórico de Movimentações</h2>
+      <div style="overflow:auto;">
+        <table class="table" id="invMovTable">
+          <thead><tr><th>Data</th><th>Tipo</th><th>Material</th><th class="right">Qtd</th><th>Motivo</th><th>Observação</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- BACKUP -->
   <section id="tab-manual" class="hide">
     <div class="card manual">
@@ -486,13 +566,16 @@
     params: {"custoHoraLaser": 30, "custoMaoObra": 18, "overhead": 1.5, "embalagem": 1.5, "perdasPct": 5, "taxas": {"Shopee": 20, "Mercado Livre": 16, "TikTok": 12}, "margemDesejada": 30},
     sim: {"wood": "MDF Cru 6mm", "comprimento": 80, "largura": 60, "areaCm2": 4800, "pctChapa": null, "tempoCorte": 10, "tempoGrav": 0, "tempoMont": 5, "canal": "Shopee", "margem": null, "nome": null, "sku": null},
     products: [],
-    priceHistory: []
+    priceHistory: [],
+    inventoryItems: [],
+    inventoryMovements: []
   };
 
   const LS_KEY = "precificacao_mdf_laser_v1";
 
   // ====== FIREBASE (Produtos no banco, sem login) ======
   const USE_FIREBASE_PRODUCTS = true;
+  const USE_FIREBASE_INVENTORY = true;
   const firebaseConfig = {
     apiKey: "AIzaSyCgaed-Dlv0DhhL4Mnw74chOML3NeNIgJc",
     authDomain: "mm-decor-626f8.firebaseapp.com",
@@ -524,6 +607,8 @@
         sim: obj.sim ? obj.sim : structuredClone(DEFAULT_DATA.sim),
         products: Array.isArray(obj.products) ? obj.products : structuredClone(DEFAULT_DATA.products),
         priceHistory: Array.isArray(obj.priceHistory) ? obj.priceHistory : [],
+        inventoryItems: Array.isArray(obj.inventoryItems) ? obj.inventoryItems : [],
+        inventoryMovements: Array.isArray(obj.inventoryMovements) ? obj.inventoryMovements : [],
       };
     } catch(e) {
       console.warn("Falha ao ler localStorage:", e);
@@ -547,6 +632,7 @@
     document.querySelectorAll("section[id^='tab-']").forEach(s => s.classList.add("hide"));
     document.getElementById("tab-" + t).classList.remove("hide");
     if (t === "prod") carregarProdutosDoBanco();
+    if (t === "estoque") carregarEstoqueDoBanco();
   }));
 
   // ====== Helpers ======
@@ -977,6 +1063,7 @@
         <td class="right">
           <button class="btn" data-pedit="${p.id}">Editar</button>
           <button class="btn accent" data-pdup="${p.id}">Duplicar</button>
+          <button class="btn" data-pop="${p.id}">Gerar OP</button>
           <button class="btn danger" data-parq="${p.id}">Arquivar</button>
         </td>`;
       prodBody.appendChild(tr);
@@ -984,6 +1071,7 @@
 
     prodBody.querySelectorAll("button[data-pedit]").forEach((btn) => btn.addEventListener("click", () => loadProductInForm(btn.dataset.pedit)));
     prodBody.querySelectorAll("button[data-pdup]").forEach((btn) => btn.addEventListener("click", () => duplicarProduto(btn.dataset.pdup)));
+    prodBody.querySelectorAll("button[data-pop]").forEach((btn) => btn.addEventListener("click", () => gerarOrdemProducao(btn.dataset.pop)));
     prodBody.querySelectorAll("button[data-parq]").forEach((btn) => btn.addEventListener("click", () => arquivarProduto(btn.dataset.parq)));
   }
 
@@ -1051,6 +1139,241 @@
     produtoForm.nome.value = novo.nome;
     produtoForm.sku.value = novo.sku;
   }
+
+  // ====== ESTOQUE ======
+  const invItemsBody = document.querySelector("#invItemsTable tbody");
+  const invMovBody = document.querySelector("#invMovTable tbody");
+  const invForm = {
+    type: document.getElementById("invMovType"),
+    item: document.getElementById("invMovItem"),
+    qty: document.getElementById("invMovQty"),
+    reason: document.getElementById("invMovReason"),
+    obs: document.getElementById("invMovObs"),
+  };
+
+  function inventoryStatus(item) {
+    return (n(item.quantidadeAtual) ?? 0) <= (n(item.estoqueMinimo) ?? 0) ? "Baixo" : "OK";
+  }
+
+  function inventoryItemLabel(item) {
+    if (!item) return "—";
+    const dim = item.largura && item.altura ? ` ${item.largura}x${item.altura}` : "";
+    return `${item.nome || "Item"}${dim}`;
+  }
+
+  function buildInventoryMovement(itemId, tipo, quantidade, motivo, observacao = "") {
+    const qty = Math.max(0, n(quantidade) ?? 0);
+    return {
+      id: crypto?.randomUUID?.() || String(Date.now() + Math.random()),
+      itemId,
+      tipo,
+      quantidade: qty,
+      motivo: motivo || "Ajuste manual",
+      observacao: observacao || null,
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  async function persistInventoryMovement(mov) {
+    state.inventoryMovements = state.inventoryMovements || [];
+    state.inventoryMovements.push(mov);
+    if (USE_FIREBASE_INVENTORY && db) {
+      await setDoc(doc(db, "inventory_movements", mov.id), mov, { merge: true });
+    }
+  }
+
+  async function applyInventoryMovement(mov) {
+    const item = (state.inventoryItems || []).find((x) => x.id === mov.itemId);
+    if (!item) throw new Error("Item de estoque não encontrado.");
+    const atual = n(item.quantidadeAtual) ?? 0;
+    const delta = mov.tipo === "saida" ? -mov.quantidade : mov.quantidade;
+    const novoSaldo = atual + delta;
+    if (novoSaldo < 0) throw new Error(`Saldo insuficiente para ${item.nome}.`);
+    item.quantidadeAtual = Number(novoSaldo.toFixed(4));
+    item.updatedAt = new Date().toISOString();
+    await persistInventoryMovement(mov);
+    if (USE_FIREBASE_INVENTORY && db) {
+      await setDoc(doc(db, "inventory_items", item.id), item, { merge: true });
+    }
+    saveState();
+    renderInventory();
+  }
+
+  function ensureInventorySeeds() {
+    state.inventoryItems = state.inventoryItems || [];
+    if (state.inventoryItems.length) return;
+    const now = new Date().toISOString();
+    const seeds = [
+      { nome: "MDF Cru 6mm", tipo: "MDF", espessura: 6, largura: 183, altura: 275, quantidadeAtual: 8, estoqueMinimo: 4, valorUnitario: 130, custoMedioAtual: 130 },
+      { nome: "MDF Cru 3mm", tipo: "MDF", espessura: 3, largura: 183, altura: 275, quantidadeAtual: 3, estoqueMinimo: 3, valorUnitario: 85, custoMedioAtual: 85 },
+      { nome: "Caixa P", tipo: "EMBALAGEM", espessura: null, largura: null, altura: null, quantidadeAtual: 120, estoqueMinimo: 40, valorUnitario: 1.2, custoMedioAtual: 1.2 },
+    ].map((x) => ({ ...x, id: crypto?.randomUUID?.() || String(Date.now() + Math.random()), createdAt: now, updatedAt: now }));
+    state.inventoryItems = seeds;
+  }
+
+  function fillInventoryMaterialSelect() {
+    invForm.item.innerHTML = "";
+    (state.inventoryItems || []).forEach((item) => {
+      const opt = document.createElement("option");
+      opt.value = item.id;
+      opt.textContent = `${item.nome} (${item.tipo})`;
+      invForm.item.appendChild(opt);
+    });
+  }
+
+  function renderInventorySummary() {
+    const items = state.inventoryItems || [];
+    const mdfTotal = items.filter((x) => x.tipo === "MDF").reduce((acc, x) => acc + (n(x.quantidadeAtual) ?? 0), 0);
+    const embTotal = items.filter((x) => x.tipo === "EMBALAGEM").reduce((acc, x) => acc + (n(x.quantidadeAtual) ?? 0), 0);
+    const lows = items.filter((x) => inventoryStatus(x) === "Baixo");
+    const latest = [...items, ...(state.inventoryMovements || [])].map((x) => x.updatedAt || x.createdAt).filter(Boolean).sort().pop();
+
+    document.getElementById("invTotalMdf").textContent = `${fmtNum(mdfTotal, 2)} chapas`;
+    document.getElementById("invTotalEmb").textContent = `${fmtNum(embTotal, 0)} unidades`;
+    document.getElementById("invAlerts").textContent = lows.length ? `🔴 ${lows.length} item(ns)` : "✅ Sem alertas";
+    document.getElementById("invUpdated").textContent = latest ? fmtDT(latest) : "—";
+  }
+
+  function renderInventoryItems() {
+    invItemsBody.innerHTML = "";
+    const items = state.inventoryItems || [];
+    if (!items.length) {
+      invItemsBody.innerHTML = '<tr><td colspan="10" class="muted">Sem materiais cadastrados.</td></tr>';
+      return;
+    }
+
+    items.forEach((item) => {
+      const tr = document.createElement("tr");
+      const status = inventoryStatus(item);
+      tr.innerHTML = `
+        <td>${item.nome || "—"}</td>
+        <td>${item.tipo || "—"}</td>
+        <td class="right">${item.tipo === "MDF" ? fmtNum(item.espessura ?? 0, 0) : "—"}</td>
+        <td class="right">${item.tipo === "MDF" && item.largura && item.altura ? `${item.largura}x${item.altura}` : "—"}</td>
+        <td class="right">${fmtNum(item.quantidadeAtual ?? 0, item.tipo === "MDF" ? 2 : 0)}</td>
+        <td class="right">${fmtNum(item.estoqueMinimo ?? 0, item.tipo === "MDF" ? 2 : 0)}</td>
+        <td class="right">${fmtBRL(item.valorUnitario ?? 0)}</td>
+        <td class="right">${fmtBRL(item.custoMedioAtual ?? item.valorUnitario ?? 0)}</td>
+        <td><span class="pill ${status === "Baixo" ? "low" : "ok"}">${status === "Baixo" ? "🔴 Estoque baixo" : "OK"}</span></td>
+        <td class="right"><button class="btn" data-iedit="${item.id}">Editar</button></td>`;
+      invItemsBody.appendChild(tr);
+    });
+
+    invItemsBody.querySelectorAll("button[data-iedit]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const item = state.inventoryItems.find((x) => x.id === btn.dataset.iedit);
+        if (!item) return;
+        const nome = prompt("Nome", item.nome || "");
+        if (!nome) return;
+        const quantidadeAtual = n(prompt("Quantidade atual", String(item.quantidadeAtual ?? 0)));
+        const estoqueMinimo = n(prompt("Estoque mínimo", String(item.estoqueMinimo ?? 0)));
+        item.nome = nome;
+        item.quantidadeAtual = quantidadeAtual ?? 0;
+        item.estoqueMinimo = estoqueMinimo ?? 0;
+        item.updatedAt = new Date().toISOString();
+        if (USE_FIREBASE_INVENTORY && db) await setDoc(doc(db, "inventory_items", item.id), item, { merge: true });
+        saveState();
+        renderInventory();
+      });
+    });
+  }
+
+  function renderInventoryMovements() {
+    invMovBody.innerHTML = "";
+    const rows = (state.inventoryMovements || []).slice().sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    if (!rows.length) {
+      invMovBody.innerHTML = '<tr><td colspan="6" class="muted">Sem movimentações.</td></tr>';
+      return;
+    }
+    rows.forEach((mov) => {
+      const item = (state.inventoryItems || []).find((x) => x.id === mov.itemId);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${fmtDT(mov.createdAt)}</td><td>${mov.tipo === "entrada" ? "Entrada" : "Saída"}</td><td>${inventoryItemLabel(item)}</td><td class="right">${fmtNum(mov.quantidade, 2)}</td><td>${mov.motivo || "—"}</td><td>${mov.observacao || "—"}</td>`;
+      invMovBody.appendChild(tr);
+    });
+  }
+
+  function renderInventory() {
+    fillInventoryMaterialSelect();
+    renderInventorySummary();
+    renderInventoryItems();
+    renderInventoryMovements();
+  }
+
+  async function carregarEstoqueDoBanco() {
+    if (!USE_FIREBASE_INVENTORY || !db) {
+      ensureInventorySeeds();
+      renderInventory();
+      return;
+    }
+    const [itemsSnap, movSnap] = await Promise.all([
+      getDocs(query(collection(db, "inventory_items"), orderBy("updatedAt", "desc"))),
+      getDocs(query(collection(db, "inventory_movements"), orderBy("createdAt", "desc"))),
+    ]);
+    state.inventoryItems = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    state.inventoryMovements = movSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    ensureInventorySeeds();
+    saveState();
+    renderInventory();
+    if (!itemsSnap.size && state.inventoryItems.length) {
+      await Promise.all(state.inventoryItems.map((item) => setDoc(doc(db, "inventory_items", item.id), item, { merge: true })));
+    }
+  }
+
+  async function adicionarItemEstoque() {
+    const tipo = (prompt("Tipo (MDF ou EMBALAGEM)", "MDF") || "MDF").toUpperCase();
+    const nome = prompt("Nome do material", tipo === "MDF" ? "MDF 6mm Cru" : "Caixa P");
+    if (!nome) return;
+    const now = new Date().toISOString();
+    const item = {
+      id: crypto?.randomUUID?.() || String(Date.now() + Math.random()),
+      nome,
+      tipo: tipo === "EMBALAGEM" ? "EMBALAGEM" : "MDF",
+      espessura: tipo === "MDF" ? (n(prompt("Espessura (mm)", "6")) ?? null) : null,
+      largura: tipo === "MDF" ? (n(prompt("Largura da chapa", "183")) ?? null) : null,
+      altura: tipo === "MDF" ? (n(prompt("Altura da chapa", "275")) ?? null) : null,
+      quantidadeAtual: n(prompt("Quantidade atual", "0")) ?? 0,
+      estoqueMinimo: n(prompt("Estoque mínimo", "0")) ?? 0,
+      valorUnitario: n(prompt("Valor unitário", "0")) ?? 0,
+      custoMedioAtual: n(prompt("Custo médio atual", "0")) ?? 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    state.inventoryItems.push(item);
+    if (USE_FIREBASE_INVENTORY && db) await setDoc(doc(db, "inventory_items", item.id), item, { merge: true });
+    saveState();
+    renderInventory();
+  }
+
+  async function gerarOrdemProducao(productId) {
+    const p = state.products.find((x) => x.id === productId);
+    if (!p) return;
+    const qtdOp = Math.max(1, n(prompt(`Quantidade da OP para ${p.nome}?`, "1")) ?? 1);
+
+    const mdfItem = (state.inventoryItems || []).find((x) => x.tipo === "MDF" && (x.nome || "").toLowerCase().includes((p.madeira || "").toLowerCase().replace("mdf", "").trim()));
+    const embItem = (state.inventoryItems || []).find((x) => x.tipo === "EMBALAGEM");
+    const pctChapa = n(p.dimensoes?.pctChapa) ?? 0;
+    const consumoMdf = pctChapa > 0 ? (pctChapa / 100) * qtdOp : 0;
+    const consumoEmb = qtdOp;
+
+    if (mdfItem && consumoMdf > 0) {
+      await applyInventoryMovement(buildInventoryMovement(mdfItem.id, "saida", consumoMdf, "Produção", `OP ${p.sku || p.nome} x${qtdOp}`));
+    }
+    if (embItem && consumoEmb > 0) {
+      await applyInventoryMovement(buildInventoryMovement(embItem.id, "saida", consumoEmb, "Produção", `OP ${p.sku || p.nome} x${qtdOp}`));
+    }
+    alert(`OP gerada. Baixas realizadas: MDF ${fmtNum(consumoMdf, 2)} chapa(s), Embalagem ${fmtNum(consumoEmb, 0)} un.`);
+  }
+
+  document.getElementById("btnAddInventoryItem").addEventListener("click", adicionarItemEstoque);
+  document.getElementById("btnAddInventoryMovement").addEventListener("click", async () => {
+    const mov = buildInventoryMovement(invForm.item.value, invForm.type.value, n(invForm.qty.value) ?? 0, invForm.reason.value, invForm.obs.value.trim());
+    if (!mov.itemId) return alert("Selecione um material.");
+    if (mov.quantidade <= 0) return alert("Informe uma quantidade válida.");
+    await applyInventoryMovement(mov);
+    invForm.qty.value = "";
+    invForm.obs.value = "";
+  });
 
   document.getElementById("btnRecalcularProduto").addEventListener("click", () => {
     const calc = computeProdutoFromForm();
@@ -1176,6 +1499,8 @@
         sim: obj.sim || structuredClone(DEFAULT_DATA.sim),
         products: Array.isArray(obj.products) ? obj.products : structuredClone(DEFAULT_DATA.products),
         priceHistory: Array.isArray(obj.priceHistory) ? obj.priceHistory : [],
+        inventoryItems: Array.isArray(obj.inventoryItems) ? obj.inventoryItems : [],
+        inventoryMovements: Array.isArray(obj.inventoryMovements) ? obj.inventoryMovements : [],
       };
       saveState();
       // recarregar tudo
@@ -1185,7 +1510,10 @@
       fillProductWoodSelect();
       renderProducts();
       renderHistorico();
+      ensureInventorySeeds();
+      renderInventory();
       carregarProdutosDoBanco();
+      carregarEstoqueDoBanco();
       calcSim();
       alert("Importado com sucesso!");
     } catch(e) {
@@ -1203,7 +1531,10 @@
     fillProductWoodSelect();
     renderProducts();
     renderHistorico();
+    ensureInventorySeeds();
+    renderInventory();
     carregarProdutosDoBanco();
+    carregarEstoqueDoBanco();
     calcSim();
   });
 
@@ -1213,9 +1544,12 @@
   renderWoods();
   fillProductWoodSelect();
   resetProdutoForm();
+  ensureInventorySeeds();
   renderProducts();
   renderHistorico();
+  renderInventory();
   carregarProdutosDoBanco();
+  carregarEstoqueDoBanco();
   calcSim();
 </script>
 </body>
