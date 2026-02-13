@@ -55,6 +55,12 @@
     .note{padding:10px 12px; border:1px dashed #decab8; border-radius:14px; background:#fff8f1; color:#8f7563; font-size:12px; line-height:1.4;}
     .footer{margin-top:16px; color:var(--muted); font-size:12px}
     a{color:#8f7a69}
+    .manual h2{font-size:22px; color:#7b6555; margin:0 0 8px;}
+    .manual h3{font-size:17px; color:#8d705d; margin:16px 0 8px;}
+    .manual p,.manual li{font-size:14px; line-height:1.5; color:#6f5b4f;}
+    .manual ul,.manual ol{margin:8px 0 0 20px; padding:0;}
+    .manual .checklist{display:grid; gap:8px; margin-top:10px;}
+    .manual .check{background:#f9f2ec; border:1px solid var(--border); border-radius:12px; padding:8px 10px; font-weight:600; color:#7b6555;}
     @media (max-width: 880px){
       header{flex-direction:column; align-items:flex-start;}
       header h1{font-size:28px;}
@@ -86,6 +92,7 @@
   <button class="tab" data-tab="madeiras">Madeiras</button>
   <button class="tab" data-tab="param">Parâmetros</button>
   <button class="tab" data-tab="prod">Produtos</button>
+  <button class="tab" data-tab="manual">Manual</button>
   <button class="tab" data-tab="backup">Backup</button>
 </div>
 
@@ -320,6 +327,103 @@
       </div>
 
       <div class="footer">Os valores salvos são os mesmos do detalhamento do Simulador: MDF, Laser (tempo de corte + gravação), mão de obra (montagem/acabamento), overhead, embalagem e ajuste de perdas.</div>
+    </div>
+  </section>
+
+  <!-- BACKUP -->
+  <section id="tab-manual" class="hide">
+    <div class="card manual">
+      <h2>📘 MANUAL COMPLETO</h2>
+      <p><strong>Sistema de Precificação MM Decor</strong><br />Precificação Profissional MDF + Laser.</p>
+
+      <div class="checklist">
+        <div class="check">✅ Custo de mão de obra</div>
+        <div class="check">✅ Ajuste de perdas / retrabalho</div>
+        <div class="check">✅ Overhead</div>
+        <div class="check">✅ % da chapa (opcional)</div>
+      </div>
+
+      <h3>🎯 1. Objetivo do Sistema</h3>
+      <p>O sistema calcula custo real de produção, custo completo (direto + indireto), preço ideal de venda, lucro real por unidade e margem líquida após taxas. Ele evita venda abaixo do custo real.</p>
+
+      <h3>🧭 2. Estrutura do Sistema</h3>
+      <p>O sistema possui 4 áreas principais: <strong>Simulador</strong>, <strong>Madeiras</strong>, <strong>Parâmetros</strong> e <strong>Produtos</strong>.</p>
+
+      <h3>🪵 3. Aba MADEIRAS</h3>
+      <ul>
+        <li><strong>Nome da Madeira:</strong> identificação do material (ex.: MDF 6mm Cru).</li>
+        <li><strong>Largura da Chapa (cm):</strong> medida horizontal da chapa inteira.</li>
+        <li><strong>Altura da Chapa (cm):</strong> medida vertical da chapa inteira.</li>
+        <li><strong>Valor da Chapa (R$):</strong> valor total pago pela chapa.</li>
+      </ul>
+      <p>O sistema calcula automaticamente área total da chapa e custo por cm²/m².</p>
+
+      <h3>⚙️ 4. Aba PARÂMETROS</h3>
+      <ul>
+        <li><strong>Valor hora laser (R$):</strong> energia, manutenção e depreciação.</li>
+        <li><strong>Valor hora mão de obra (R$):</strong> salário, pró-labore e encargos.</li>
+        <li><strong>Percentual de perdas (%):</strong> erros de corte, quebras, desperdício e retrabalho.</li>
+        <li><strong>Overhead (%):</strong> aluguel, internet, marketing, administração e indiretos.</li>
+      </ul>
+
+      <h3>🧮 5. Aba SIMULADOR – Campo por Campo</h3>
+      <ul>
+        <li><strong>Nome do Produto</strong> e <strong>SKU</strong> para identificação e controle.</li>
+        <li><strong>Madeira selecionada</strong> para usar o custo correto da chapa.</li>
+        <li><strong>Comprimento</strong> e <strong>Largura (cm)</strong> para cálculo de área.</li>
+        <li><strong>% da chapa (opcional):</strong> para formato irregular, múltiplas peças ou aproveitamento estratégico. Se preenchido, substitui o cálculo automático por área.</li>
+        <li><strong>Tempo de Corte</strong>, <strong>Gravação</strong> e <strong>Montagem</strong>.</li>
+      </ul>
+
+      <h3>💰 6. Como o Sistema Calcula o Custo</h3>
+      <ol>
+        <li><strong>Custo da Madeira:</strong> por área da peça ou % manual da chapa.</li>
+        <li><strong>Custo do Laser:</strong> (corte + gravação) × valor hora laser.</li>
+        <li><strong>Custo de Mão de Obra:</strong> montagem × valor hora mão de obra.</li>
+        <li><strong>Ajuste de Perdas/Retrabalho:</strong> aplicado sobre madeira + laser + mão de obra.</li>
+        <li><strong>Overhead:</strong> aplicado conforme configuração da operação.</li>
+        <li><strong>Custo Total Real:</strong> valor completo por unidade.</li>
+      </ol>
+
+      <h3>💵 7. Definição do Preço</h3>
+      <p>Com o custo total calculado, você define a margem desejada. O sistema retorna preço ideal, lucro em R$ e margem líquida real. Depois, desconta a taxa do canal de venda (Shopee, Instagram, loja física etc.).</p>
+
+      <h3>📊 8. Entendendo os Resultados</h3>
+      <ul>
+        <li><strong>Custo Total:</strong> valor real de produção.</li>
+        <li><strong>Preço Sugerido:</strong> preço para atingir a meta de margem.</li>
+        <li><strong>Lucro:</strong> sobra após custos e taxa do canal.</li>
+        <li><strong>Margem Líquida:</strong> indicador real de rentabilidade.</li>
+      </ul>
+
+      <h3>📦 9. Aba PRODUTOS</h3>
+      <p>Histórico com nome, SKU, custo, preço, lucro, canal e margem. Permite comparação, exportação e exclusão.</p>
+
+      <h3>📈 10. Estratégia Recomendada</h3>
+      <ul>
+        <li>Margem mínima recomendada: <strong>35%</strong>.</li>
+        <li>Ideal para online: <strong>40% a 55%</strong>.</li>
+        <li>Produtos personalizados: <strong>acima de 50%</strong>.</li>
+        <li>Evite vender abaixo de <strong>30%</strong>.</li>
+      </ul>
+
+      <h3>🚨 11. Erros Comuns</h3>
+      <ul>
+        <li>Não considerar perdas.</li>
+        <li>Esquecer o tempo de montagem.</li>
+        <li>Não aplicar overhead.</li>
+        <li>Copiar preço do concorrente sem cálculo.</li>
+        <li>Ignorar taxas de marketplace.</li>
+      </ul>
+
+      <h3>🧠 12. Fluxo Ideal de Uso</h3>
+      <ol>
+        <li>Cadastrar madeiras.</li>
+        <li>Ajustar parâmetros.</li>
+        <li>Calcular produto.</li>
+        <li>Ajustar margem.</li>
+        <li>Salvar e monitorar lucro.</li>
+      </ol>
     </div>
   </section>
 
