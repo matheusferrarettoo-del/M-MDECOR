@@ -89,6 +89,15 @@
     .manual ul,.manual ol{margin:8px 0 0 20px; padding:0;}
     .manual .checklist{display:grid; gap:8px; margin-top:10px;}
     .manual .check{background:#f9f2ec; border:1px solid var(--border); border-radius:12px; padding:8px 10px; font-weight:600; color:#7b6555;}
+
+    .status-pill{display:inline-flex; align-items:center; gap:4px; padding:4px 9px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid transparent;}
+    .orders-layout{display:grid; grid-template-columns:1.1fr .9fr; gap:14px; align-items:start;}
+    @media (max-width: 980px){ .orders-layout{grid-template-columns:1fr;} }
+    .order-item-grid{display:grid; grid-template-columns:1.6fr .7fr .8fr .9fr auto; gap:8px; margin-top:8px;}
+    @media (max-width: 760px){ .order-item-grid{grid-template-columns:1fr 1fr;} .order-item-grid .btn{grid-column:span 2;} }
+    .order-item-row{display:contents;}
+    .alert-delay{padding:10px; border-radius:12px; border:1px solid #f0c5b8; background:#fdf1ed; color:#a06052; font-size:12px; margin-top:8px;}
+
     @media (max-width: 880px){
       header{flex-direction:column; align-items:flex-start;}
       header h1{font-size:28px;}
@@ -121,6 +130,7 @@
   <button class="tab" data-tab="madeiras">Madeiras</button>
   <button class="tab" data-tab="param">Parâmetros</button>
   <button class="tab" data-tab="prod">Produtos</button>
+  <button class="tab" data-tab="pedidos">Pedidos</button>
   <button class="tab" data-tab="estoque">Estoque</button>
   <button class="tab" data-tab="manual">Manual</button>
   <button class="tab" data-tab="backup">Backup</button>
@@ -404,6 +414,56 @@
     </div>
   </section>
 
+  <!-- PEDIDOS -->
+  <section id="tab-pedidos" class="hide">
+    <div class="card" style="margin-bottom:14px;">
+      <h2>Lista de Pedidos</h2>
+      <div class="muted">Fluxo completo: cliente, prazos, status de produção e lucro por pedido.</div>
+      <div class="btnbar"><button class="btn primary" id="btnNovoPedido">Novo pedido</button></div>
+      <div style="overflow:auto; margin-top:12px;">
+        <table class="table" id="ordersTable">
+          <thead><tr><th>Nº Pedido</th><th>Cliente</th><th>Canal</th><th>Data pedido</th><th>Prazo</th><th class="right">Valor</th><th class="right">Lucro</th><th>Status</th><th class="right">Ações</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="orders-layout">
+      <div class="card">
+        <h2>Criar / Editar Pedido</h2>
+        <h3 style="margin:6px 0; font-size:14px;">A) Dados do Cliente</h3>
+        <div class="row"><label>Nome</label><input id="order_clienteNome" type="text" /></div>
+        <div class="row"><label>Telefone</label><input id="order_telefone" type="text" /></div>
+        <div class="row"><label>Canal</label><select id="order_canal"><option>Shopee</option><option>Instagram</option><option>Mercado Livre</option><option>TikTok</option><option>Loja Física</option></select></div>
+        <div class="row" style="grid-template-columns:1fr;"><label>Observações</label><textarea id="order_obs" rows="2"></textarea></div>
+
+        <h3 style="margin:12px 0 6px; font-size:14px;">B) Itens do Pedido</h3>
+        <div class="order-item-grid" id="orderItemsGrid"></div>
+        <div class="btnbar"><button class="btn" id="btnAddOrderItem">+ Adicionar item</button></div>
+
+        <h3 style="margin:12px 0 6px; font-size:14px;">C) Prazos</h3>
+        <div class="row"><label>Data do pedido</label><input id="order_dataPedido" type="date" /></div>
+        <div class="row"><label>Data prometida</label><input id="order_dataEntrega" type="date" /></div>
+        <div id="orderDelayAlert" class="alert-delay hide"></div>
+
+        <h3 style="margin:12px 0 6px; font-size:14px;">D) Status do Pedido</h3>
+        <div class="row"><label>Status</label><select id="order_status"></select></div>
+        <div class="btnbar"><button class="btn accent" id="btnSalvarPedido">Salvar pedido</button></div>
+      </div>
+
+      <div class="card">
+        <h2>Resumo Financeiro do Pedido</h2>
+        <div class="kpis">
+          <div class="kpi"><div class="t">Receita total</div><div class="v" id="orderResumoReceita">R$ 0,00</div></div>
+          <div class="kpi"><div class="t">Custo total</div><div class="v" id="orderResumoCusto">R$ 0,00</div></div>
+          <div class="kpi"><div class="t">Lucro total</div><div class="v" id="orderResumoLucro">R$ 0,00</div></div>
+          <div class="kpi"><div class="t">Margem %</div><div class="v" id="orderResumoMargem">0%</div></div>
+        </div>
+        <div class="note" id="orderResumoProducao">Sem OP gerada.</div>
+      </div>
+    </div>
+  </section>
+
   <!-- ESTOQUE -->
   <section id="tab-estoque" class="hide">
     <div class="summary-cards">
@@ -621,7 +681,9 @@
     priceHistory: [],
     inventoryItems: [],
     inventoryMovements: [],
-    dashboardOrders: []
+    dashboardOrders: [],
+    orders: [],
+    productionOrders: []
   };
 
   const LS_KEY = "precificacao_mdf_laser_v1";
@@ -663,6 +725,8 @@
         inventoryItems: Array.isArray(obj.inventoryItems) ? obj.inventoryItems : [],
         inventoryMovements: Array.isArray(obj.inventoryMovements) ? obj.inventoryMovements : [],
         dashboardOrders: Array.isArray(obj.dashboardOrders) ? obj.dashboardOrders : [],
+        orders: Array.isArray(obj.orders) ? obj.orders : [],
+        productionOrders: Array.isArray(obj.productionOrders) ? obj.productionOrders : [],
       };
     } catch(e) {
       console.warn("Falha ao ler localStorage:", e);
@@ -688,6 +752,7 @@
     if (t === "prod") carregarProdutosDoBanco();
     if (t === "estoque") carregarEstoqueDoBanco();
     if (t === "dashboard") renderDashboard();
+    if (t === "pedidos") renderOrders();
   }));
 
   // ====== Helpers ======
@@ -1149,6 +1214,8 @@
     const snap = await getDocs(query(collection(db, "products"), orderBy("updatedAt", "desc")));
     state.products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderProducts();
+    resetOrderForm();
+    renderOrders();
     renderHistorico();
     renderDashboard();
   }
@@ -1500,51 +1567,227 @@
     produtoForm.canal.value = lastCalc.canal || "Shopee";
     produtoForm.margem.value = lastCalc.margemUsada ?? state.params.margemDesejada ?? 0;
   });
+
+  // ====== PEDIDOS ======
+  const ORDER_STATUS = [
+    { value: "Orçamento", color: "#f5e9bf", text: "#886f23", icon: "🟡" },
+    { value: "Aprovado", color: "#ddebfb", text: "#3d6792", icon: "🔵" },
+    { value: "Em Produção", color: "#f8dfc8", text: "#935d29", icon: "🟠" },
+    { value: "Acabamento", color: "#eadff8", text: "#6a4a95", icon: "🟣" },
+    { value: "Finalizado", color: "#ddeedb", text: "#4c7b49", icon: "🟢" },
+    { value: "Entregue", color: "#ececec", text: "#575757", icon: "⚫" },
+    { value: "Cancelado", color: "#f6dada", text: "#974747", icon: "🔴" },
+  ];
+  const orderBody = document.querySelector("#ordersTable tbody");
+  const orderForm = {
+    clienteNome: document.getElementById("order_clienteNome"), telefone: document.getElementById("order_telefone"), canal: document.getElementById("order_canal"), obs: document.getElementById("order_obs"),
+    dataPedido: document.getElementById("order_dataPedido"), dataEntrega: document.getElementById("order_dataEntrega"), status: document.getElementById("order_status")
+  };
+  let editingOrderId = null;
+  let orderItemsDraft = [];
+
+  function ensureOrdersSeeds() {
+    state.orders = state.orders || [];
+    state.productionOrders = state.productionOrders || [];
+    if (!state.orders.length && state.dashboardOrders?.length) {
+      state.orders = state.dashboardOrders.map((o, idx) => ({
+        id: o.id || (crypto?.randomUUID?.() || String(Date.now() + Math.random())),
+        orderNumber: `PED-${String(idx+1).padStart(4,'0')}`,
+        clienteNome: o.cliente || "Cliente", telefone: "", canal: "Shopee", observacoes: "",
+        status: o.status || "Orçamento", dataPedido: (o.createdAt || new Date().toISOString()).slice(0,10), dataEntrega: (o.previstoPara || new Date().toISOString()).slice(0,10),
+        itens: [], valorTotal: n(o.valorFinal) ?? 0, custoTotal: Math.max(0, (n(o.valorTotal) ?? 0) - (n(o.lucroTotal) ?? 0)), lucroTotal: n(o.lucroReal) ?? 0,
+        minutosCorte: n(o.minutosCorte) ?? 0, minutosMontagem: n(o.minutosMontagem) ?? 0, createdAt: o.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+      }));
+    }
+  }
+  function orderStatusMeta(status){ return ORDER_STATUS.find((s) => s.value === status) || ORDER_STATUS[0]; }
+  function statusPill(status){ const m = orderStatusMeta(status); return `<span class="status-pill" style="background:${m.color};color:${m.text};">${m.icon} ${status}</span>`; }
+  function newOrderNumber(){ const seq=(state.orders||[]).length+1; return `PED-${String(seq).padStart(4,'0')}`; }
+  function productOptionsHtml(selected){ return `<option value="">Selecione</option>${(state.products||[]).map((p)=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${p.nome||p.sku||'Produto'}</option>`).join('')}`; }
+
+  function recalcOrderDraft() {
+    orderItemsDraft = orderItemsDraft.map((it) => {
+      const p = (state.products || []).find((x) => x.id === it.productId);
+      const qtd = Math.max(1, n(it.quantidade) ?? 1);
+      const precoUnit = n(it.precoUnit) ?? (n(p?.precoSugerido) ?? 0);
+      const custoUnit = n(p?.custoTotal) ?? 0;
+      const lucroUnit = precoUnit - custoUnit;
+      return { ...it, nomeProduto: p?.nome || it.nomeProduto || "", quantidade: qtd, precoUnit, custoUnit, lucroUnit, subtotal: precoUnit * qtd, tempos: { corte: n(p?.tempos?.corte) ?? 0, montagem: n(p?.tempos?.montagem) ?? 0 } };
+    });
+    renderOrderItems();
+    renderOrderSummary();
+  }
+
+  function renderOrderItems(){
+    const grid = document.getElementById("orderItemsGrid");
+    if (!grid) return;
+    if (!orderItemsDraft.length) orderItemsDraft = [{ id: crypto?.randomUUID?.() || String(Date.now()), productId: "", quantidade: 1, precoUnit: 0 }];
+    grid.innerHTML = `<div class="muted">Produto</div><div class="muted">Qtd</div><div class="muted">Preço unit.</div><div class="muted">Subtotal</div><div></div>` + orderItemsDraft.map((it)=>`<div class="order-item-row">
+      <select data-item="${it.id}" data-field="productId">${productOptionsHtml(it.productId)}</select>
+      <input data-item="${it.id}" data-field="quantidade" type="number" min="1" step="1" value="${it.quantidade ?? 1}" />
+      <input data-item="${it.id}" data-field="precoUnit" type="number" step="0.01" value="${it.precoUnit ?? 0}" />
+      <input value="${fmtBRL(it.subtotal ?? 0)}" disabled />
+      <button class="btn danger" data-del-item="${it.id}">Remover</button>
+    </div>`).join("");
+    grid.querySelectorAll("[data-item]").forEach((el)=>el.addEventListener("input",()=>{
+      const it = orderItemsDraft.find((x)=>x.id===el.dataset.item); if(!it) return;
+      it[el.dataset.field]=el.value; recalcOrderDraft();
+    }));
+    grid.querySelectorAll("[data-del-item]").forEach((b)=>b.addEventListener("click",()=>{orderItemsDraft=orderItemsDraft.filter((x)=>x.id!==b.dataset.delItem); recalcOrderDraft();}));
+  }
+
+  function orderTotals(items){
+    const valorTotal = items.reduce((a,i)=>a+(n(i.precoUnit)??0)*(n(i.quantidade)??0),0);
+    const custoTotal = items.reduce((a,i)=>a+(n(i.custoUnit)??0)*(n(i.quantidade)??0),0);
+    const lucroTotal = valorTotal - custoTotal;
+    const margem = valorTotal>0 ? (lucroTotal/valorTotal)*100 : 0;
+    const minutosCorte = items.reduce((a,i)=>a+(n(i.tempos?.corte)??0)*(n(i.quantidade)??0),0);
+    const minutosMontagem = items.reduce((a,i)=>a+(n(i.tempos?.montagem)??0)*(n(i.quantidade)??0),0);
+    return {valorTotal,custoTotal,lucroTotal,margem,minutosCorte,minutosMontagem};
+  }
+
+  function renderOrderSummary(){
+    const t = orderTotals(orderItemsDraft);
+    document.getElementById("orderResumoReceita").textContent = fmtBRL(t.valorTotal);
+    document.getElementById("orderResumoCusto").textContent = fmtBRL(t.custoTotal);
+    document.getElementById("orderResumoLucro").textContent = fmtBRL(t.lucroTotal);
+    document.getElementById("orderResumoMargem").textContent = fmtNum(t.margem,1)+"%";
+    const delay = document.getElementById("orderDelayAlert");
+    const dtEntrega = orderForm.dataEntrega.value ? new Date(orderForm.dataEntrega.value+"T23:59:59") : null;
+    const atrasado = dtEntrega && dtEntrega < new Date() && !["Finalizado","Entregue","Cancelado"].includes(orderForm.status.value);
+    delay.textContent = atrasado ? "⚠ Pedido atrasado: prazo vencido e pedido ainda não finalizado." : "";
+    delay.classList.toggle("hide", !atrasado);
+  }
+
+  function resetOrderForm(){
+    editingOrderId = null;
+    Object.values(orderForm).forEach((f)=>f.value="");
+    orderForm.canal.value = "Shopee";
+    orderForm.status.innerHTML = ORDER_STATUS.map((s)=>`<option value="${s.value}">${s.icon} ${s.value}</option>`).join("");
+    orderForm.status.value = "Orçamento";
+    const hoje = new Date().toISOString().slice(0,10);
+    orderForm.dataPedido.value = hoje;
+    orderForm.dataEntrega.value = hoje;
+    orderItemsDraft = [{ id: crypto?.randomUUID?.() || String(Date.now()), productId: "", quantidade: 1, precoUnit: 0 }];
+    recalcOrderDraft();
+    document.getElementById("orderResumoProducao").textContent = "Sem OP gerada.";
+  }
+
+  function createProductionOrderIfNeeded(order, prevStatus){
+    if (order.status !== "Aprovado" || prevStatus === "Aprovado") return;
+    const exists = (state.productionOrders||[]).some((op)=>op.orderId===order.id);
+    if (exists) return;
+    state.productionOrders.push({
+      id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), orderId: order.id, orderNumber: order.orderNumber,
+      minutosCorte: order.minutosCorte, minutosMontagem: order.minutosMontagem, status: "Aberta", createdAt: new Date().toISOString()
+    });
+  }
+
+  function renderOrders(){
+    if (!orderBody) return;
+    orderBody.innerHTML = "";
+    const rows=(state.orders||[]).slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="9" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
+    rows.forEach((o)=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${o.orderNumber||'—'}</td><td>${o.clienteNome||'—'}</td><td>${o.canal||'—'}</td><td>${o.dataPedido||'—'}</td><td>${o.dataEntrega||'—'}</td><td class="right">${fmtBRL(o.valorTotal||0)}</td><td class="right">${fmtBRL(o.lucroTotal||0)}</td><td>${statusPill(o.status||'Orçamento')}</td><td class="right"><button class="btn" data-oedit="${o.id}">Editar</button></td>`;
+      orderBody.appendChild(tr);
+    });
+    orderBody.querySelectorAll('[data-oedit]').forEach((b)=>b.addEventListener('click',()=>loadOrderForm(b.dataset.oedit)));
+  }
+
+  function loadOrderForm(id){
+    const o=(state.orders||[]).find((x)=>x.id===id); if(!o) return;
+    editingOrderId = id;
+    orderForm.clienteNome.value=o.clienteNome||''; orderForm.telefone.value=o.telefone||''; orderForm.canal.value=o.canal||'Shopee';
+    orderForm.obs.value=o.observacoes||''; orderForm.dataPedido.value=o.dataPedido||''; orderForm.dataEntrega.value=o.dataEntrega||'';
+    orderForm.status.innerHTML = ORDER_STATUS.map((s)=>`<option value="${s.value}">${s.icon} ${s.value}</option>`).join("");
+    orderForm.status.value=o.status||'Orçamento';
+    orderItemsDraft=(o.itens||[]).map((it)=>({ ...it, id: crypto?.randomUUID?.() || String(Date.now()+Math.random()) }));
+    recalcOrderDraft();
+    const op = (state.productionOrders||[]).find((x)=>x.orderId===o.id);
+    document.getElementById("orderResumoProducao").textContent = op ? `OP criada: Corte ${fmtNum(op.minutosCorte,0)} min · Montagem ${fmtNum(op.minutosMontagem,0)} min` : 'Sem OP gerada.';
+  }
+
+  document.getElementById('btnNovoPedido').addEventListener('click', resetOrderForm);
+  document.getElementById('btnAddOrderItem').addEventListener('click', ()=>{ orderItemsDraft.push({ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), productId: '', quantidade: 1, precoUnit: 0 }); recalcOrderDraft(); });
+  [orderForm.dataEntrega, orderForm.status].forEach((f)=>f.addEventListener('input', renderOrderSummary));
+
+  document.getElementById('btnSalvarPedido').addEventListener('click', ()=>{
+    if (!orderForm.clienteNome.value.trim()) return alert('Informe o nome do cliente.');
+    const totals = orderTotals(orderItemsDraft);
+    const now = new Date().toISOString();
+    const prev = editingOrderId ? (state.orders||[]).find((x)=>x.id===editingOrderId) : null;
+    const order = {
+      id: editingOrderId || (crypto?.randomUUID?.() || String(Date.now()+Math.random())),
+      orderNumber: prev?.orderNumber || newOrderNumber(),
+      clienteNome: orderForm.clienteNome.value.trim(), telefone: orderForm.telefone.value.trim(), canal: orderForm.canal.value, observacoes: orderForm.obs.value.trim(),
+      status: orderForm.status.value, dataPedido: orderForm.dataPedido.value, dataEntrega: orderForm.dataEntrega.value,
+      itens: orderItemsDraft.map((it)=>({ productId: it.productId||null, nomeProduto: it.nomeProduto||'', quantidade: n(it.quantidade)??0, precoUnit: n(it.precoUnit)??0, custoUnit: n(it.custoUnit)??0, lucroUnit: n(it.lucroUnit)??0 })),
+      valorTotal: totals.valorTotal, custoTotal: totals.custoTotal, lucroTotal: totals.lucroTotal, minutosCorte: totals.minutosCorte, minutosMontagem: totals.minutosMontagem,
+      createdAt: prev?.createdAt || now, updatedAt: now
+    };
+    createProductionOrderIfNeeded(order, prev?.status);
+    if (editingOrderId) { const i=state.orders.findIndex((x)=>x.id===editingOrderId); if(i>=0) state.orders[i]=order; }
+    else state.orders.unshift(order);
+    saveState();
+    renderOrders();
+    renderDashboard();
+    loadOrderForm(order.id);
+  });
+
   // ====== DASHBOARD ======
   function ensureDashboardOrdersSeeds() {
-    state.dashboardOrders = state.dashboardOrders || [];
-    if (state.dashboardOrders.length) return;
+    ensureOrdersSeeds();
+    state.orders = state.orders || [];
+    if (state.orders.length) return;
     const now = new Date();
-    const mk = (d, status, nome, valor, lucro, corte, mont) => ({
+    const mk = (d, status, nome, valor, lucro, corte, mont, idx) => ({
       id: crypto?.randomUUID?.() || String(Date.now() + Math.random()),
-      cliente: nome,
+      orderNumber: `PED-${String(idx + 1).padStart(4, "0")}`,
+      clienteNome: nome,
+      canal: "Shopee",
       status,
-      valorFinal: valor,
-      lucroReal: lucro,
+      valorTotal: valor,
+      custoTotal: Math.max(0, valor - lucro),
+      lucroTotal: lucro,
       minutosCorte: corte,
       minutosMontagem: mont,
-      previstoPara: new Date(now.getFullYear(), now.getMonth(), now.getDate() + d).toISOString(),
+      dataPedido: new Date().toISOString().slice(0,10),
+      dataEntrega: new Date(now.getFullYear(), now.getMonth(), now.getDate() + d).toISOString().slice(0,10),
+      itens: [],
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
-    state.dashboardOrders = [
-      mk(-2, "Aprovado", "Pedido Festa Safari", 890, 320, 130, 80),
-      mk(-1, "Em Produção", "Topo de Bolo Premium", 420, 170, 95, 50),
-      mk(0, "Orçamento", "Lembrancinhas Dino", 0, 0, 60, 40),
-      mk(0, "Finalizado", "Painel Nome em MDF", 650, 250, 110, 70),
-      mk(0, "Entregue", "Kit Mesversário", 540, 220, 85, 40),
+    state.orders = [
+      mk(-2, "Aprovado", "Pedido Festa Safari", 890, 320, 130, 80, 0),
+      mk(-1, "Em Produção", "Topo de Bolo Premium", 420, 170, 95, 50, 1),
+      mk(0, "Orçamento", "Lembrancinhas Dino", 0, 0, 60, 40, 2),
+      mk(0, "Finalizado", "Painel Nome em MDF", 650, 250, 110, 70, 3),
+      mk(0, "Entregue", "Kit Mesversário", 540, 220, 85, 40, 4),
     ];
   }
 
   function getDashboardData() {
-    const delivered = (state.dashboardOrders || []).filter((o) => o.status === "Entregue");
+    const delivered = (state.orders || []).filter((o) => o.status === "Entregue");
     const month = new Date().getMonth();
     const year = new Date().getFullYear();
     const deliveredMonth = delivered.filter((o) => {
-      const dt = new Date(o.createdAt || o.previstoPara || Date.now());
+      const dt = new Date((o.createdAt || `${o.dataEntrega || ""}T00:00:00`) || Date.now());
       return dt.getMonth() === month && dt.getFullYear() === year;
     });
 
-    const receitaMes = deliveredMonth.reduce((acc, o) => acc + (n(o.valorFinal) ?? 0), 0);
-    const lucroMes = deliveredMonth.reduce((acc, o) => acc + (n(o.lucroReal) ?? 0), 0);
-    const pedidosAbertos = (state.dashboardOrders || []).filter((o) => o.status !== "Entregue").length;
-    const producaoPendente = (state.dashboardOrders || []).filter((o) => !["Finalizado", "Entregue"].includes(o.status)).length;
+    const receitaMes = deliveredMonth.reduce((acc, o) => acc + (n(o.valorTotal) ?? 0), 0);
+    const lucroMes = deliveredMonth.reduce((acc, o) => acc + (n(o.lucroTotal) ?? 0), 0);
+    const pedidosAbertos = (state.orders || []).filter((o) => o.status !== "Entregue").length;
+    const producaoPendente = (state.orders || []).filter((o) => !["Finalizado", "Entregue"].includes(o.status)).length;
     const mdfDisponivel = (state.inventoryItems || []).filter((i) => i.tipo === "MDF").reduce((acc, i) => acc + (n(i.quantidadeAtual) ?? 0), 0);
 
     const hoje = new Date();
     const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
     const fim = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
-    const pedidosHoje = (state.dashboardOrders || []).filter((o) => {
-      const dt = new Date(o.previstoPara || o.createdAt || Date.now());
+    const pedidosHoje = (state.orders || []).filter((o) => {
+      const dt = new Date((o.dataEntrega || o.createdAt || "") + (o.dataEntrega ? "T00:00:00" : ""));
       return dt >= inicio && dt < fim;
     });
     const corteHoje = pedidosHoje.reduce((acc, o) => acc + (n(o.minutosCorte) ?? 0), 0);
@@ -1578,8 +1821,8 @@
 
     const statusCols = ["Orçamento", "Aprovado", "Em Produção", "Finalizado", "Entregue"];
     document.getElementById("dashKanban").innerHTML = statusCols.map((status) => {
-      const items = (state.dashboardOrders || []).filter((o) => o.status === status).slice(0, 4);
-      return `<div class="kan-col"><h3>${status} (${items.length})</h3>${items.map((i) => `<div class="kan-item">${i.cliente || "Pedido"}<br><b>${fmtBRL(i.valorFinal || 0)}</b></div>`).join("") || '<div class="muted">Sem itens</div>'}</div>`;
+      const items = (state.orders || []).filter((o) => o.status === status).slice(0, 4);
+      return `<div class="kan-col"><h3>${status} (${items.length})</h3>${items.map((i) => `<div class="kan-item">${i.clienteNome || "Pedido"}<br><b>${fmtBRL(i.valorTotal || 0)}</b></div>`).join("") || '<div class="muted">Sem itens</div>'}</div>`;
     }).join("");
 
     document.getElementById("dashProducao").innerHTML = `
@@ -1662,6 +1905,8 @@
         inventoryItems: Array.isArray(obj.inventoryItems) ? obj.inventoryItems : [],
         inventoryMovements: Array.isArray(obj.inventoryMovements) ? obj.inventoryMovements : [],
         dashboardOrders: Array.isArray(obj.dashboardOrders) ? obj.dashboardOrders : [],
+        orders: Array.isArray(obj.orders) ? obj.orders : [],
+        productionOrders: Array.isArray(obj.productionOrders) ? obj.productionOrders : [],
       };
       saveState();
       // recarregar tudo
@@ -1670,6 +1915,8 @@
       renderWoods();
       fillProductWoodSelect();
       renderProducts();
+      resetOrderForm();
+      renderOrders();
       renderHistorico();
       ensureInventorySeeds();
       renderInventory();
@@ -1707,6 +1954,8 @@
   resetProdutoForm();
   ensureInventorySeeds();
   ensureDashboardOrdersSeeds();
+  resetOrderForm();
+  renderOrders();
   renderProducts();
   renderHistorico();
   renderInventory();
