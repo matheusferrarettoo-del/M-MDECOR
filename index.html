@@ -11,26 +11,20 @@
       --shadow:0 14px 30px rgba(152,126,104,.12);
     }
     *{box-sizing:border-box}
-    body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial; background:radial-gradient(circle at top,#f9f5f1,var(--bg) 70%); color:var(--text); padding:18px 12px 30px;}
-    .workspace{max-width:1420px; margin:0 auto; display:grid; grid-template-columns:60px 1fr; gap:16px; align-items:start;}
-    .side-rail{background:linear-gradient(180deg,#324257,#243446); border:1px solid rgba(255,255,255,.1); border-radius:0 0 18px 18px; min-height:calc(100vh - 48px); box-shadow:0 12px 28px rgba(35,50,69,.24); display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:18px 0 12px; position:sticky; top:12px;}
-    .rail-icons{display:flex; flex-direction:column; gap:14px; margin-top:34px;}
-    .rail-btn{width:32px; height:32px; border-radius:10px; display:grid; place-items:center; color:#b9c4cf; font-size:16px; border:1px solid transparent; background:transparent;}
-    .rail-btn.active,.rail-btn:hover{background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.18); color:#f4f7fa;}
-    .rail-profile{width:34px; height:34px; border-radius:50%; background:#93a289; color:#ecf2e8; display:grid; place-items:center; font-weight:700;}
-    .app-shell{background:rgba(255,250,246,.72); border:1px solid #efe4db; border-radius:20px; box-shadow:var(--shadow); overflow:hidden; backdrop-filter:blur(6px);}
-    header{padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; background:rgba(252,247,242,.92);}
+    body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial; background:radial-gradient(circle at top,#f9f5f1,var(--bg) 70%); color:var(--text); padding:24px 12px 40px;}
+    .app-shell{max-width:1220px; margin:0 auto; background:rgba(255,250,246,.85); border:1px solid #efe4db; border-radius:28px; box-shadow:var(--shadow); overflow:hidden; backdrop-filter:blur(6px);}
+    header{padding:22px 28px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; background:rgba(252,247,242,.92);}
     .brand{display:flex; align-items:center; gap:16px;}
-    .logo-mark{width:40px; height:40px; border-radius:13px; background:linear-gradient(145deg,#ecd7c7,#f8efe8); color:#b99075; font-size:20px; display:grid; place-items:center; font-weight:700; box-shadow:inset 0 1px 0 #fff;}
-    header h1{margin:0;font-size:36px;font-weight:500; letter-spacing:.3px; color:#8d705d;}
+    .logo-mark{width:58px; height:58px; border-radius:18px; background:linear-gradient(145deg,#ecd7c7,#f8efe8); color:#b99075; font-size:28px; display:grid; place-items:center; font-weight:700; box-shadow:inset 0 1px 0 #fff;}
+    header h1{margin:0;font-size:37px;font-weight:500; letter-spacing:.3px; color:#8d705d;}
     header p{margin:2px 0 0; color:var(--muted); font-size:13px}
     .top-actions{display:flex; gap:10px; align-items:center;}
     .ghost-btn{border:1px solid var(--border); border-radius:14px; background:#fffcf9; padding:10px 14px; color:#8d705d; font-weight:600; box-shadow:0 2px 8px rgba(168,138,114,.1);}
     .profile{width:44px; height:44px; border-radius:50%; background:#b9c1aa; color:#fff; display:grid; place-items:center; font-weight:700;}
-    .tabs{display:flex; gap:4px; flex-wrap:wrap; padding:8px 14px; border-bottom:1px solid var(--border); background:#fffdfa;}
-    .tab{border:1px solid transparent; background:transparent; color:#8f7a69; padding:9px 10px; border-radius:10px; cursor:pointer; font-weight:600; font-size:16px;}
+    .tabs{display:flex; gap:8px; flex-wrap:wrap; padding:10px 20px; border-bottom:1px solid var(--border); background:#fffdfa;}
+    .tab{border:1px solid transparent; background:transparent; color:#8f7a69; padding:11px 16px; border-radius:12px; cursor:pointer; font-weight:600; font-size:21px;}
     .tab.active{color:#6e8a63; background:#f6f1ec; border-color:#e8ddd2;}
-    .wrap{padding:14px 14px 28px;}
+    .wrap{padding:20px 18px 34px;}
     .grid{display:grid; grid-template-columns: 1.1fr .9fr; gap:14px; align-items:start;}
     @media (max-width: 920px){ .grid{grid-template-columns: 1fr;} }
     .card{background:var(--card); border:1px solid var(--border); border-radius:20px; padding:16px; box-shadow:0 8px 20px rgba(162,132,106,.1);}
@@ -120,9 +114,6 @@
     @media (max-width: 900px){ .wood-item-grid{grid-template-columns:1fr 1fr;} .wood-item-grid .btn{grid-column:span 2;} }
 
     @media (max-width: 880px){
-      .workspace{grid-template-columns:1fr;}
-      .side-rail{position:static; min-height:auto; border-radius:14px; padding:10px 12px; flex-direction:row;}
-      .rail-icons{flex-direction:row; margin-top:0;}
       header{flex-direction:column; align-items:flex-start;}
       header h1{font-size:28px;}
       .top-actions{width:100%;}
@@ -132,19 +123,6 @@
   </style>
 </head>
 <body>
-<div class="workspace">
-<aside class="side-rail" aria-label="Atalhos">
-  <div class="rail-icons">
-    <button class="rail-btn active" type="button" title="Dashboard">⌂</button>
-    <button class="rail-btn" type="button" title="Simulador">⎚</button>
-    <button class="rail-btn" type="button" title="Produtos">▦</button>
-    <button class="rail-btn" type="button" title="Pedidos">✉</button>
-    <button class="rail-btn" type="button" title="Financeiro">◔</button>
-    <button class="rail-btn" type="button" title="Estoque">▣</button>
-  </div>
-  <div class="rail-profile">M</div>
-</aside>
-
 <div class="app-shell">
 <header>
   <div class="brand">
@@ -843,7 +821,6 @@
       </div>
     </div>
   </section>
-</div>
 </div>
 </div>
 
