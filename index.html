@@ -83,6 +83,15 @@
     .alert-item{padding:10px 12px; border-radius:12px; background:#fdf3f1; border:1px solid #f0d0cb; color:#a26b6b; font-size:13px;}
     .profit-list{display:grid; gap:8px;}
     .profit-item{display:flex; justify-content:space-between; align-items:center; border:1px solid var(--border); border-radius:12px; padding:10px; background:#fffcf9;}
+    .report-actions{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-top:12px;}
+    .report-group{border:1px solid var(--border); border-radius:14px; background:#fffcf9; padding:10px;}
+    .report-group h3{margin:0 0 8px; font-size:14px; color:#7b6555;}
+    .mini-chart{display:grid; gap:8px; margin-top:10px;}
+    .chart-row{display:grid; grid-template-columns:120px 1fr auto; gap:8px; align-items:center;}
+    .chart-row .label{font-size:12px; color:var(--muted);}
+    .bar-wrap{height:10px; border-radius:999px; background:#f1e7df; overflow:hidden;}
+    .bar{height:100%; border-radius:999px; background:linear-gradient(90deg,#b4bea1,#8ca37a);}
+    .bar.negative{background:linear-gradient(90deg,#e5b4aa,#cb8f84);}
     .manual h2{font-size:22px; color:#7b6555; margin:0 0 8px;}
     .manual h3{font-size:17px; color:#8d705d; margin:16px 0 8px;}
     .manual p,.manual li{font-size:14px; line-height:1.5; color:#6f5b4f;}
@@ -570,6 +579,53 @@
         </table>
       </div>
     </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h2>Exportação e Relatórios</h2>
+      <div class="muted">Baixe pedidos, histórico de precificação e financeiro em CSV, planilha (.xls) ou PDF.</div>
+      <div class="report-actions">
+        <div class="report-group">
+          <h3>Pedidos</h3>
+          <div class="btnbar">
+            <button class="btn" id="btnExportOrdersCSV" type="button">CSV</button>
+            <button class="btn" id="btnExportOrdersXLS" type="button">Planilha</button>
+            <button class="btn accent" id="btnExportOrdersPDF" type="button">PDF</button>
+          </div>
+        </div>
+        <div class="report-group">
+          <h3>Histórico de Precificação</h3>
+          <div class="btnbar">
+            <button class="btn" id="btnExportHistoryCSV" type="button">CSV</button>
+            <button class="btn" id="btnExportHistoryXLS" type="button">Planilha</button>
+            <button class="btn accent" id="btnExportHistoryPDF" type="button">PDF</button>
+          </div>
+        </div>
+        <div class="report-group">
+          <h3>Financeiro</h3>
+          <div class="btnbar">
+            <button class="btn" id="btnExportFinanceCSV" type="button">CSV</button>
+            <button class="btn" id="btnExportFinanceXLS" type="button">Planilha</button>
+            <button class="btn accent" id="btnExportFinancePDF" type="button">PDF</button>
+          </div>
+        </div>
+      </div>
+
+      <h2 style="margin-top:14px;">Relatórios Visuais</h2>
+      <div class="dashboard-grid">
+        <div>
+          <div class="muted">Fluxo de caixa (últimos 6 meses)</div>
+          <div id="reportFluxoChart" class="mini-chart"></div>
+        </div>
+        <div>
+          <div class="muted">Lucro por período (pedidos entregues)</div>
+          <div id="reportLucroPeriodo" class="mini-chart"></div>
+        </div>
+        <div>
+          <div class="muted">Materiais mais lucrativos (por pedidos)</div>
+          <div id="reportMateriaisLucrativos" class="mini-chart"></div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- ESTOQUE -->
@@ -997,6 +1053,59 @@
   function fmtNum(v, dec = 2) {
     if (v === null || v === "" || !Number.isFinite(v)) return "—";
     return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+
+  function downloadBlob(filename, content, mime = "text/plain;charset=utf-8") {
+    const blob = new Blob([content], { type: mime });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function csvEscape(value) {
+    const text = String(value ?? "");
+    if (/[,;"\n]/.test(text)) return `"${text.replaceAll('"', '""')}"`;
+    return text;
+  }
+
+  function toCSV(headers, rows) {
+    const headerLine = headers.map((h) => csvEscape(h.label)).join(";");
+    const body = rows.map((row) => headers.map((h) => csvEscape(row[h.key])).join(";")).join("\n");
+    return `${headerLine}\n${body}`;
+  }
+
+  function toXLS(title, headers, rows) {
+    const head = headers.map((h) => `<th>${h.label}</th>`).join("");
+    const body = rows.map((row) => `<tr>${headers.map((h) => `<td>${row[h.key] ?? ""}</td>`).join("")}</tr>`).join("");
+    return `<!doctype html><html><head><meta charset="utf-8"/><title>${title}</title></head><body><table border="1"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></body></html>`;
+  }
+
+  function exportPDF(title, headers, rows) {
+    const win = window.open("", "_blank");
+    if (!win) return alert("Permita pop-ups para exportar em PDF.");
+    const header = headers.map((h) => `<th>${h.label}</th>`).join("");
+    const body = rows.map((row) => `<tr>${headers.map((h) => `<td>${row[h.key] ?? ""}</td>`).join("")}</tr>`).join("");
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"/><title>${title}</title><style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;font-size:12px;text-align:left}th{background:#f3f3f3}</style></head><body><h1>${title}</h1><table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table></body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
+  function renderMiniChart(containerId, data, formatter = (v) => fmtBRL(v)) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (!data.length) {
+      container.innerHTML = '<div class="muted">Sem dados suficientes.</div>';
+      return;
+    }
+    const max = Math.max(...data.map((d) => Math.abs(n(d.value) ?? 0)), 1);
+    container.innerHTML = data.map((d) => {
+      const value = n(d.value) ?? 0;
+      const pct = (Math.abs(value) / max) * 100;
+      return `<div class="chart-row"><span class="label">${d.label}</span><div class="bar-wrap"><div class="bar ${value < 0 ? "negative" : ""}" style="width:${pct}%"></div></div><b>${formatter(value)}</b></div>`;
+    }).join("");
   }
   function clampNonNeg(x) {
     if (x === null) return null;
@@ -2385,6 +2494,98 @@
       renderFinance();
       renderDashboard();
     }));
+
+    renderVisualReports();
+  }
+
+  function getLastMonths(months = 6) {
+    const now = new Date();
+    return Array.from({ length: months }, (_, idx) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (months - 1 - idx), 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return { key, label: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }) };
+    });
+  }
+
+  function renderVisualReports() {
+    const months = getLastMonths(6);
+    const monthlyEntries = months.map((m) => {
+      const value = (state.finance?.entries || []).reduce((acc, e) => {
+        if ((e.status || '') !== 'recebido') return acc;
+        const date = (e.date || '').slice(0, 7);
+        if (date !== m.key) return acc;
+        const amount = n(e.value) ?? 0;
+        return acc + (e.type === 'entrada' ? amount : -amount);
+      }, 0);
+      return { label: m.label, value };
+    });
+
+    const lucroMes = months.map((m) => {
+      const value = (state.orders || []).reduce((acc, o) => {
+        if ((o.status || '') !== 'Entregue') return acc;
+        const date = (o.dataPedido || '').slice(0, 7);
+        if (date !== m.key) return acc;
+        return acc + (n(o.lucroTotal) ?? 0);
+      }, 0);
+      return { label: m.label, value };
+    });
+
+    const materialMap = {};
+    (state.orders || []).forEach((o) => {
+      (o.itens || []).forEach((it) => {
+        const produto = (state.products || []).find((p) => p.id === it.productId || p.nome === it.nomeProduto);
+        const material = produto?.woodItems?.[0]?.wood || produto?.woodId || produto?.madeira || 'Não informado';
+        const lucro = (n(it.lucroUnit) ?? 0) * (n(it.quantidade) ?? 0);
+        materialMap[material] = (materialMap[material] || 0) + lucro;
+      });
+    });
+    const topMateriais = Object.entries(materialMap)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+
+    renderMiniChart('reportFluxoChart', monthlyEntries);
+    renderMiniChart('reportLucroPeriodo', lucroMes);
+    renderMiniChart('reportMateriaisLucrativos', topMateriais);
+  }
+
+  function setupExports() {
+    const orderHeaders = [
+      { key: 'numero', label: 'Pedido' }, { key: 'cliente', label: 'Cliente' }, { key: 'canal', label: 'Canal' },
+      { key: 'dataPedido', label: 'Data pedido' }, { key: 'dataEntrega', label: 'Prazo' }, { key: 'status', label: 'Status' },
+      { key: 'valorTotal', label: 'Valor total' }, { key: 'lucroTotal', label: 'Lucro total' },
+    ];
+    const histHeaders = [
+      { key: 'data', label: 'Data' }, { key: 'produto', label: 'Produto' }, { key: 'sku', label: 'SKU' },
+      { key: 'custoTotal', label: 'Custo total' }, { key: 'preco', label: 'Preço' }, { key: 'margem', label: 'Margem %' }, { key: 'canal', label: 'Canal' },
+    ];
+    const finHeaders = [
+      { key: 'data', label: 'Data' }, { key: 'tipo', label: 'Tipo' }, { key: 'status', label: 'Status' },
+      { key: 'descricao', label: 'Descrição' }, { key: 'valor', label: 'Valor' },
+    ];
+
+    const orderRows = () => (state.orders || []).map((o) => ({
+      numero: o.orderNumber || '', cliente: o.clienteNome || '', canal: o.canal || '', dataPedido: o.dataPedido || '', dataEntrega: o.dataEntrega || '',
+      status: o.status || '', valorTotal: (n(o.valorTotal) ?? 0).toFixed(2), lucroTotal: (n(o.lucroTotal) ?? 0).toFixed(2),
+    }));
+    const histRows = () => (state.priceHistory || []).map((h) => ({
+      data: h.data || '', produto: h.nome || '', sku: h.sku || '', custoTotal: (n(h.custoTotal) ?? 0).toFixed(2), preco: (n(h.preco) ?? 0).toFixed(2), margem: ((n(h.margem) ?? 0) * 100).toFixed(2), canal: h.canal || '',
+    }));
+    const finRows = () => (state.finance?.entries || []).map((e) => ({
+      data: e.date || '', tipo: e.type === 'entrada' ? 'Entrada' : 'Saída', status: e.status === 'pendente' ? 'Pendente' : 'Recebido/Pago', descricao: e.description || '', valor: (n(e.value) ?? 0).toFixed(2),
+    }));
+
+    document.getElementById('btnExportOrdersCSV')?.addEventListener('click', () => downloadBlob('pedidos.csv', toCSV(orderHeaders, orderRows()), 'text/csv;charset=utf-8'));
+    document.getElementById('btnExportHistoryCSV')?.addEventListener('click', () => downloadBlob('historico_precificacao.csv', toCSV(histHeaders, histRows()), 'text/csv;charset=utf-8'));
+    document.getElementById('btnExportFinanceCSV')?.addEventListener('click', () => downloadBlob('financeiro.csv', toCSV(finHeaders, finRows()), 'text/csv;charset=utf-8'));
+
+    document.getElementById('btnExportOrdersXLS')?.addEventListener('click', () => downloadBlob('pedidos.xls', toXLS('Pedidos', orderHeaders, orderRows()), 'application/vnd.ms-excel;charset=utf-8'));
+    document.getElementById('btnExportHistoryXLS')?.addEventListener('click', () => downloadBlob('historico_precificacao.xls', toXLS('Histórico de Precificação', histHeaders, histRows()), 'application/vnd.ms-excel;charset=utf-8'));
+    document.getElementById('btnExportFinanceXLS')?.addEventListener('click', () => downloadBlob('financeiro.xls', toXLS('Financeiro', finHeaders, finRows()), 'application/vnd.ms-excel;charset=utf-8'));
+
+    document.getElementById('btnExportOrdersPDF')?.addEventListener('click', () => exportPDF('Relatório de Pedidos', orderHeaders, orderRows()));
+    document.getElementById('btnExportHistoryPDF')?.addEventListener('click', () => exportPDF('Histórico de Precificação', histHeaders, histRows()));
+    document.getElementById('btnExportFinancePDF')?.addEventListener('click', () => exportPDF('Relatório Financeiro', finHeaders, finRows()));
   }
 
   // ====== DASHBOARD ======
@@ -2679,6 +2880,7 @@
   renderInventory();
   renderDashboard();
   renderFinance();
+  setupExports();
   carregarProdutosDoBanco();
   carregarEstoqueDoBanco();
   carregarConfiguracoesDoBanco().catch((e) => console.warn("Falha ao carregar configurações do Firebase:", e));
