@@ -378,7 +378,7 @@
         <h2>Módulo Produtos</h2>
         <div class="muted">Cadastro com ficha técnica, precificação automática e histórico de recálculo.</div>
         <div class="btnbar">
-          <button class="btn primary" id="btnNovoProduto">Novo produto</button>
+          <button class="btn primary" id="btnNovoProduto">Adicionar novo</button>
         </div>
         <div style="margin-top:12px; overflow:auto;">
           <table class="table" id="prodTable">
@@ -399,7 +399,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card hide" id="prodFormCard">
         <h2>Criar / Editar Produto</h2>
         <div class="row"><label>Nome do produto*</label><input id="prod_nome" type="text" /></div>
         <div class="row"><label>SKU único*</label><input id="prod_sku" type="text" /></div>
@@ -1374,6 +1374,7 @@
   // ====== MÓDULO PRODUTOS ======
   const prodBody = document.querySelector("#prodTable tbody");
   const histBody = document.querySelector("#histTable tbody");
+  const prodFormCard = document.getElementById("prodFormCard");
   const produtoForm = {
     nome: document.getElementById("prod_nome"),
     sku: document.getElementById("prod_sku"),
@@ -1465,7 +1466,16 @@
     renderProductWoodItems(getProductWoodItemsFromForm());
   }
 
-  function resetProdutoForm() {
+  function showProdutoForm() {
+    prodFormCard?.classList.remove("hide");
+  }
+
+  function hideProdutoForm() {
+    prodFormCard?.classList.add("hide");
+  }
+
+  function resetProdutoForm(options = {}) {
+    const { keepOpen = false } = options;
     editingProductId = null;
     Object.values(produtoForm).forEach((x) => { if (x.tagName === "SELECT") return; x.value = ""; });
     produtoForm.ativo.value = "true";
@@ -1476,6 +1486,7 @@
     document.getElementById("prodResumoCalc").textContent = "Preencha os dados e clique em recalcular.";
     renderProductWoodItems([emptyWoodItem()]);
     lastProductCalc = null;
+    if (!keepOpen) hideProdutoForm();
   }
 
   function computeProdutoFromForm() {
@@ -1628,6 +1639,7 @@
     produtoForm.margem.value = p.margemDesejada ?? "";
     renderProductWoodItems(normalizeProductWoodItems(p.woodItems));
     lastProductCalc = p;
+    showProdutoForm();
   }
 
   async function arquivarProduto(id) {
@@ -2040,7 +2052,10 @@
     resetProdutoForm();
   });
 
-  document.getElementById("btnNovoProduto").addEventListener("click", resetProdutoForm);
+  document.getElementById("btnNovoProduto").addEventListener("click", () => {
+    resetProdutoForm({ keepOpen: true });
+    showProdutoForm();
+  });
 
   document.getElementById("btnSalvarProduto").addEventListener("click", () => {
     if (!lastCalc) return alert("Recalcule no Simulador antes de enviar para Produtos.");
@@ -2048,6 +2063,7 @@
     document.querySelector('.tab[data-tab="prod"]').classList.add("active");
     document.querySelectorAll("section[id^='tab-']").forEach(s => s.classList.add("hide"));
     document.getElementById("tab-prod").classList.remove("hide");
+    showProdutoForm();
 
     produtoForm.nome.value = el.nome.value || lastCalc.nome || "";
     produtoForm.sku.value = el.sku.value || lastCalc.sku || "";
