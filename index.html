@@ -236,6 +236,11 @@
         </div>
 
         <div class="row">
+          <label>Mão de obra secundária fixa (R$)</label>
+          <input id="sim_mao_sec" type="number" step="0.01" />
+        </div>
+
+        <div class="row">
           <label>Canal</label>
           <select id="sim_canal">
             <option>Shopee</option>
@@ -287,6 +292,7 @@
             <tr><td>Custo MDF da peça</td><td class="right" id="d_mdf">—</td></tr>
             <tr><td>Custo laser</td><td class="right" id="d_laser">—</td></tr>
             <tr><td>Custo mão de obra</td><td class="right" id="d_mao">—</td></tr>
+            <tr><td>Mão de obra secundária fixa</td><td class="right" id="d_mao_sec">—</td></tr>
             <tr><td>Overhead</td><td class="right" id="d_over">—</td></tr>
             <tr><td>Embalagem</td><td class="right" id="d_emb">—</td></tr>
             <tr><td><b>Custo base</b></td><td class="right" id="d_base">—</td></tr>
@@ -417,6 +423,7 @@
         <div class="row"><label>Tempo corte (min)</label><input id="prod_corte" type="number" step="0.01" /></div>
         <div class="row"><label>Tempo gravação (min)</label><input id="prod_gravacao" type="number" step="0.01" /></div>
         <div class="row"><label>Tempo montagem (min)</label><input id="prod_montagem" type="number" step="0.01" /></div>
+        <div class="row"><label>Mão de obra secundária fixa (R$)</label><input id="prod_mao_sec" type="number" step="0.01" /></div>
         <div class="row"><label>Custo embalagem (R$)</label><input id="prod_embalagem" type="number" step="0.01" /></div>
         <div class="row"><label>Canal para snapshot</label><select id="prod_canal"><option>Shopee</option><option>Mercado Livre</option><option>TikTok</option></select></div>
         <div class="row"><label>Margem desejada (%)</label><input id="prod_margem" type="number" step="0.01" /></div>
@@ -779,7 +786,7 @@
   const DEFAULT_DATA = {
     woods: [{"name": "MDF Cru 3mm", "thickness": 3, "width": 140, "height": 90, "price": 60, "obs": null}, {"name": "MDF Cru 6mm", "thickness": 6, "width": 140, "height": 90, "price": 130, "obs": null}, {"name": "MDF Branco 3mm", "thickness": 3, "width": 140, "height": 90, "price": 145, "obs": null}],
     params: {"custoHoraLaser": 30, "custoMaoObra": 18, "overhead": 1.5, "embalagem": 1.5, "perdasPct": 5, "taxas": {"Shopee": 20, "Mercado Livre": 16, "TikTok": 12}, "margemDesejada": 30},
-    sim: {"wood": "MDF Cru 6mm", "comprimento": 80, "largura": 60, "areaCm2": 4800, "pctChapa": null, "tempoCorte": 10, "tempoGrav": 0, "tempoMont": 5, "canal": "Shopee", "margem": null, "nome": null, "sku": null},
+    sim: {"wood": "MDF Cru 6mm", "comprimento": 80, "largura": 60, "areaCm2": 4800, "pctChapa": null, "tempoCorte": 10, "tempoGrav": 0, "tempoMont": 5, "maoSecundariaFixa": null, "canal": "Shopee", "margem": null, "nome": null, "sku": null},
     products: [],
     priceHistory: [],
     inventoryItems: [],
@@ -1018,6 +1025,7 @@
     corte: document.getElementById("sim_corte"),
     grav: document.getElementById("sim_grav"),
     mont: document.getElementById("sim_mont"),
+    maoSec: document.getElementById("sim_mao_sec"),
     canal: document.getElementById("sim_canal"),
     margem: document.getElementById("sim_margem"),
   };
@@ -1089,6 +1097,7 @@
     el.corte.value = state.sim.tempoCorte ?? "";
     el.grav.value = state.sim.tempoGrav ?? "";
     el.mont.value = state.sim.tempoMont ?? "";
+    el.maoSec.value = state.sim.maoSecundariaFixa ?? "";
     el.canal.value = state.sim.canal ?? "Shopee";
     el.margem.value = state.sim.margem ?? "";
     state.sim.woodItems = normalizeWoodItems(state.sim.woodItems);
@@ -1116,6 +1125,7 @@
       tempoCorte: el.corte.value === "" ? null : n(el.corte.value),
       tempoGrav: el.grav.value === "" ? null : n(el.grav.value),
       tempoMont: el.mont.value === "" ? null : n(el.mont.value),
+      maoSecundariaFixa: el.maoSec.value === "" ? null : n(el.maoSec.value),
       canal: el.canal.value,
       margem: el.margem.value === "" ? null : n(el.margem.value),
       woodItems: Array.from(simWoodItemsContainer.querySelectorAll(".wood-item")).map((row) => {
@@ -1149,6 +1159,7 @@
     const tCorte = clampNonNeg(n(state.sim.tempoCorte)) ?? 0;
     const tGrav  = clampNonNeg(n(state.sim.tempoGrav)) ?? 0;
     const tMont  = clampNonNeg(n(state.sim.tempoMont)) ?? 0;
+    const maoSecundariaFixa = clampNonNeg(n(state.sim.maoSecundariaFixa)) ?? 0;
 
     const canal = state.sim.canal || "Shopee";
 
@@ -1188,7 +1199,7 @@
 
     const custoLaser = (custoHoraLaser/60) * (tCorte + tGrav);
     const custoMao = (custoMaoObra/60) * (tMont);
-    const custoBase = (custoMdf ?? 0) + custoLaser + custoMao + overhead + embalagem;
+    const custoBase = (custoMdf ?? 0) + custoLaser + custoMao + maoSecundariaFixa + overhead + embalagem;
     const ajustePerdas = custoBase * (perdasPct/100);
     const custoTotal = custoBase + ajustePerdas;
 
@@ -1210,6 +1221,7 @@
       margemUsada,
       comp, larg, areaCm2, pctChapa,
       tCorte, tGrav, tMont,
+      maoSecundariaFixa,
       custoMdf: (custoMdf ?? 0),
       custoLaser,
       custoMao,
@@ -1242,6 +1254,7 @@
     document.getElementById("d_mdf").textContent = fmtBRL(custoMdf ?? 0);
     document.getElementById("d_laser").textContent = fmtBRL(custoLaser);
     document.getElementById("d_mao").textContent = fmtBRL(custoMao);
+    document.getElementById("d_mao_sec").textContent = fmtBRL(maoSecundariaFixa);
     document.getElementById("d_over").textContent = fmtBRL(overhead);
     document.getElementById("d_emb").textContent = fmtBRL(embalagem);
     document.getElementById("d_base").textContent = fmtBRL(custoBase);
@@ -1278,6 +1291,7 @@
     el.larg.value = "";
     el.pct.value = "";
     el.margem.value = "";
+    el.maoSec.value = "";
     // garantir limpeza total (inclui compatibilidade de área antiga)
     state.sim = {...(state.sim || {}), comprimento: null, largura: null, areaCm2: null, woodItems: [emptyWoodItem()]};
     saveSimToState();
@@ -1373,6 +1387,7 @@
     corte: document.getElementById("prod_corte"),
     gravacao: document.getElementById("prod_gravacao"),
     montagem: document.getElementById("prod_montagem"),
+    maoSecundariaFixa: document.getElementById("prod_mao_sec"),
     embalagem: document.getElementById("prod_embalagem"),
     canal: document.getElementById("prod_canal"),
     margem: document.getElementById("prod_margem"),
@@ -1471,6 +1486,7 @@
     const tCorte = n(produtoForm.corte.value) ?? 0;
     const tGrav = n(produtoForm.gravacao.value) ?? 0;
     const tMont = n(produtoForm.montagem.value) ?? 0;
+    const maoSecundariaFixa = n(produtoForm.maoSecundariaFixa.value) ?? 0;
     const embalagem = n(produtoForm.embalagem.value) ?? 0;
     const canal = produtoForm.canal.value || "Shopee";
     const margemDesejada = n(produtoForm.margem.value) ?? (n(state.params.margemDesejada) ?? 0);
@@ -1493,7 +1509,7 @@
     const perdasPct = n(state.params.perdasPct) ?? 0;
     const overheadPct = n(state.params.overhead) ?? 0;
 
-    const subtotal = custoMdf + custoLaser + custoMao + embalagem;
+    const subtotal = custoMdf + custoLaser + custoMao + maoSecundariaFixa + embalagem;
     const ajustePerdas = subtotal * (perdasPct/100);
     const overhead = subtotal * (overheadPct/100);
     const custoTotal = subtotal + ajustePerdas + overhead;
@@ -1513,6 +1529,7 @@
       dimensoes: { comp, larg, pctChapa: pctChapa ?? null },
       tempos: { corte: tCorte, gravacao: tGrav, montagem: tMont },
       embalagem,
+      maoSecundariaFixa,
       observacoesTecnicas: produtoForm.obs.value.trim() || null,
       canal,
       taxaCanal,
@@ -1604,6 +1621,7 @@
     produtoForm.corte.value = p.tempos?.corte ?? "";
     produtoForm.gravacao.value = p.tempos?.gravacao ?? "";
     produtoForm.montagem.value = p.tempos?.montagem ?? "";
+    produtoForm.maoSecundariaFixa.value = p.maoSecundariaFixa ?? "";
     produtoForm.embalagem.value = p.embalagem ?? "";
     produtoForm.obs.value = p.observacoesTecnicas ?? "";
     produtoForm.canal.value = p.canal || "Shopee";
@@ -2041,6 +2059,7 @@
     produtoForm.corte.value = lastCalc.tCorte ?? "";
     produtoForm.gravacao.value = lastCalc.tGrav ?? "";
     produtoForm.montagem.value = lastCalc.tMont ?? "";
+    produtoForm.maoSecundariaFixa.value = lastCalc.maoSecundariaFixa ?? 0;
     produtoForm.embalagem.value = lastCalc.embalagem ?? state.params.embalagem ?? 0;
     produtoForm.canal.value = lastCalc.canal || "Shopee";
     produtoForm.margem.value = lastCalc.margemUsada ?? state.params.margemDesejada ?? 0;
