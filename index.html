@@ -97,6 +97,8 @@
     @media (max-width: 760px){ .order-item-grid{grid-template-columns:1fr 1fr;} .order-item-grid .btn{grid-column:span 2;} }
     .order-item-row{display:contents;}
     .alert-delay{padding:10px; border-radius:12px; border:1px solid #f0c5b8; background:#fdf1ed; color:#a06052; font-size:12px; margin-top:8px;}
+    .orders-filters{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-top:12px;}
+    .orders-filters .filter-field{min-width:200px; flex:1;}
 
     @media (max-width: 880px){
       header{flex-direction:column; align-items:flex-start;}
@@ -421,6 +423,17 @@
       <h2>Lista de Pedidos</h2>
       <div class="muted">Fluxo completo: cliente, prazos, status de produção e lucro por pedido.</div>
       <div class="btnbar"><button class="btn primary" id="btnNovoPedido">Novo pedido</button></div>
+      <div class="orders-filters">
+        <div class="filter-field">
+          <label for="ordersDataInicio">Data inicial (pedido)</label>
+          <input id="ordersDataInicio" type="date" />
+        </div>
+        <div class="filter-field">
+          <label for="ordersDataFim">Data final (pedido)</label>
+          <input id="ordersDataFim" type="date" />
+        </div>
+        <button class="btn" id="btnLimparFiltroData" type="button">Limpar filtro</button>
+      </div>
       <div style="overflow:auto; margin-top:12px;">
         <table class="table" id="ordersTable">
           <thead><tr><th>Nº Pedido</th><th>Cliente</th><th>Canal</th><th>Data pedido</th><th>Prazo</th><th class="right">Valor</th><th class="right">Lucro</th><th>Status</th><th class="right">Ações</th></tr></thead>
@@ -1809,6 +1822,11 @@
     { value: "Cancelado", color: "#f6dada", text: "#974747", icon: "🔴" },
   ];
   const orderBody = document.querySelector("#ordersTable tbody");
+  const orderDateFilter = {
+    inicio: document.getElementById("ordersDataInicio"),
+    fim: document.getElementById("ordersDataFim"),
+    limpar: document.getElementById("btnLimparFiltroData"),
+  };
   const orderForm = {
     clienteNome: document.getElementById("order_clienteNome"), telefone: document.getElementById("order_telefone"), canal: document.getElementById("order_canal"), obs: document.getElementById("order_obs"),
     dataPedido: document.getElementById("order_dataPedido"), dataEntrega: document.getElementById("order_dataEntrega"), status: document.getElementById("order_status")
@@ -1916,7 +1934,18 @@
   function renderOrders(){
     if (!orderBody) return;
     orderBody.innerHTML = "";
-    const rows=(state.orders||[]).slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+    const inicio = orderDateFilter.inicio?.value || "";
+    const fim = orderDateFilter.fim?.value || "";
+    const rows=(state.orders||[])
+      .filter((o)=>{
+        const dataPedido = o.dataPedido || "";
+        if (!dataPedido) return !inicio && !fim;
+        if (inicio && dataPedido < inicio) return false;
+        if (fim && dataPedido > fim) return false;
+        return true;
+      })
+      .slice()
+      .sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
     if(!rows.length){ orderBody.innerHTML='<tr><td colspan="9" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
     rows.forEach((o)=>{
       const tr=document.createElement('tr');
@@ -1961,6 +1990,12 @@
   document.getElementById('btnNovoPedido').addEventListener('click', resetOrderForm);
   document.getElementById('btnAddOrderItem').addEventListener('click', ()=>{ orderItemsDraft.push({ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), productId: '', quantidade: 1, precoUnit: 0 }); recalcOrderDraft(); });
   [orderForm.dataEntrega, orderForm.status].forEach((f)=>f.addEventListener('input', renderOrderSummary));
+  [orderDateFilter.inicio, orderDateFilter.fim].forEach((f)=>f?.addEventListener('input', renderOrders));
+  orderDateFilter.limpar?.addEventListener('click', ()=>{
+    if (orderDateFilter.inicio) orderDateFilter.inicio.value = "";
+    if (orderDateFilter.fim) orderDateFilter.fim.value = "";
+    renderOrders();
+  });
 
   document.getElementById('btnSalvarPedido').addEventListener('click', async ()=>{
     if (!orderForm.clienteNome.value.trim()) return alert('Informe o nome do cliente.');
