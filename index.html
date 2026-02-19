@@ -99,6 +99,10 @@
     .alert-delay{padding:10px; border-radius:12px; border:1px solid #f0c5b8; background:#fdf1ed; color:#a06052; font-size:12px; margin-top:8px;}
     .orders-filters{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-top:12px;}
     .orders-filters .filter-field{min-width:200px; flex:1;}
+    .wood-items-list{display:flex; flex-direction:column; gap:8px; margin-top:8px;}
+    .wood-item{border:1px dashed var(--border); border-radius:14px; padding:10px; background:#fffbf7;}
+    .wood-item-grid{display:grid; grid-template-columns:1.2fr .9fr .9fr .9fr auto; gap:8px; align-items:end;}
+    @media (max-width: 900px){ .wood-item-grid{grid-template-columns:1fr 1fr;} .wood-item-grid .btn{grid-column:span 2;} }
 
     @media (max-width: 880px){
       header{flex-direction:column; align-items:flex-start;}
@@ -189,6 +193,16 @@
         <div class="row">
           <label>Madeira selecionada</label>
           <select id="sim_wood"></select>
+        </div>
+
+        <div class="row" style="grid-template-columns:1fr;">
+          <label>Múltiplos tipos de madeira</label>
+          <div>
+            <div class="btnbar" style="margin-top:6px;">
+              <button class="btn" id="btnAddSimWood" type="button">+ Adicionar tipo de madeira</button>
+            </div>
+            <div id="simWoodItems" class="wood-items-list"></div>
+          </div>
         </div>
 
         <div class="row">
@@ -386,6 +400,15 @@
         <div class="row"><label>Categoria*</label><input id="prod_categoria" type="text" placeholder="Festa, Brinquedo..." /></div>
         <div class="row"><label>Madeira*</label><select id="prod_wood"></select></div>
         <div class="row"><label>Espessura</label><input id="prod_espessura" type="text" placeholder="Ex.: 6mm" /></div>
+        <div class="row" style="grid-template-columns:1fr;">
+          <label>Múltiplos tipos de madeira</label>
+          <div>
+            <div class="btnbar" style="margin-top:6px;">
+              <button class="btn" id="btnAddProdWood" type="button">+ Adicionar tipo de madeira</button>
+            </div>
+            <div id="prodWoodItems" class="wood-items-list"></div>
+          </div>
+        </div>
         <div class="row"><label>Status</label><select id="prod_ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
         <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;" />
         <div class="row"><label>Comprimento (cm)</label><input id="prod_comp" type="number" step="0.01" /></div>
@@ -998,6 +1021,52 @@
     canal: document.getElementById("sim_canal"),
     margem: document.getElementById("sim_margem"),
   };
+  const simWoodItemsContainer = document.getElementById("simWoodItems");
+
+  function emptyWoodItem() {
+    return { wood: state.woods[0]?.name || "", espessura: "", comprimento: null, largura: null };
+  }
+
+  function normalizeWoodItems(items) {
+    if (!Array.isArray(items) || !items.length) return [emptyWoodItem()];
+    return items.map((item) => ({
+      wood: item?.wood || state.woods[0]?.name || "",
+      espessura: item?.espessura || "",
+      comprimento: n(item?.comprimento),
+      largura: n(item?.largura),
+    }));
+  }
+
+  function renderSimWoodItems() {
+    simWoodItemsContainer.innerHTML = "";
+    const items = normalizeWoodItems(state.sim.woodItems);
+    state.sim.woodItems = items;
+    items.forEach((item, idx) => {
+      const row = document.createElement("div");
+      row.className = "wood-item";
+      row.innerHTML = `
+        <div class="wood-item-grid">
+          <div><label>Madeira</label><select data-sim-wood="${idx}"></select></div>
+          <div><label>Espessura</label><input data-sim-thickness="${idx}" type="text" placeholder="Ex.: 3mm" /></div>
+          <div><label>Comprimento (cm)</label><input data-sim-comp="${idx}" type="number" step="0.01" /></div>
+          <div><label>Largura (cm)</label><input data-sim-larg="${idx}" type="number" step="0.01" /></div>
+          <button class="btn danger" type="button" data-sim-remove="${idx}">Remover</button>
+        </div>`;
+      simWoodItemsContainer.appendChild(row);
+
+      const woodSelect = row.querySelector(`[data-sim-wood="${idx}"]`);
+      state.woods.forEach((w) => {
+        const opt = document.createElement("option");
+        opt.value = w.name;
+        opt.textContent = `${w.name} (${w.thickness ?? "—"}mm)`;
+        woodSelect.appendChild(opt);
+      });
+      woodSelect.value = item.wood || state.woods[0]?.name || "";
+      row.querySelector(`[data-sim-thickness="${idx}"]`).value = item.espessura || "";
+      row.querySelector(`[data-sim-comp="${idx}"]`).value = item.comprimento ?? "";
+      row.querySelector(`[data-sim-larg="${idx}"]`).value = item.largura ?? "";
+    });
+  }
 
   function fillSimSelect() {
     el.wood.innerHTML = "";
@@ -1022,6 +1091,8 @@
     el.mont.value = state.sim.tempoMont ?? "";
     el.canal.value = state.sim.canal ?? "Shopee";
     el.margem.value = state.sim.margem ?? "";
+    state.sim.woodItems = normalizeWoodItems(state.sim.woodItems);
+    renderSimWoodItems();
   }
 
   function saveSimToState() {
@@ -1047,6 +1118,15 @@
       tempoMont: el.mont.value === "" ? null : n(el.mont.value),
       canal: el.canal.value,
       margem: el.margem.value === "" ? null : n(el.margem.value),
+      woodItems: Array.from(simWoodItemsContainer.querySelectorAll(".wood-item")).map((row) => {
+        const idx = row.querySelector("[data-sim-wood]")?.dataset.simWood;
+        return {
+          wood: row.querySelector(`[data-sim-wood="${idx}"]`)?.value || state.woods[0]?.name || "",
+          espessura: row.querySelector(`[data-sim-thickness="${idx}"]`)?.value?.trim() || "",
+          comprimento: n(row.querySelector(`[data-sim-comp="${idx}"]`)?.value),
+          largura: n(row.querySelector(`[data-sim-larg="${idx}"]`)?.value),
+        };
+      }),
     };
     saveState();
   }
@@ -1056,6 +1136,7 @@
     saveSimToState();
     const w0 = getWoodByName(state.sim.wood);
     const w = w0 ? woodComputed(w0) : null;
+    const woodItems = normalizeWoodItems(state.sim.woodItems);
 
     // inputs
     const comp = clampNonNeg(n(state.sim.comprimento));
@@ -1085,16 +1166,23 @@
       : (n(state.sim.margem) ?? 0);
 
     // custo MDF da peça (replica planilha)
-    let custoMdf = null;
-    if (w) {
+    let custoMdf = 0;
+    let resumoMadeiras = [];
+    if (woodItems.length) {
+      woodItems.forEach((item) => {
+        const itemWood = woodComputed(getWoodByName(item.wood) || {});
+        const itemAreaCm2 = (n(item.comprimento) ?? 0) * (n(item.largura) ?? 0);
+        const itemCost = itemAreaCm2 > 0 && n(itemWood.costm2) !== null ? n(itemWood.costm2) * (itemAreaCm2/10000) : 0;
+        custoMdf += itemCost;
+        resumoMadeiras.push(`${itemWood.name || "Madeira"} ${item.espessura || (itemWood.thickness ? `${itemWood.thickness}mm` : "—")} (${fmtNum(item.comprimento || 0)}×${fmtNum(item.largura || 0)} cm)`);
+      });
+    } else if (w) {
       if (pctChapa !== null && pctChapa !== 0) {
         const price = n(w.price);
-        custoMdf = price !== null ? (price * (pctChapa/100)) : null;
+        custoMdf = price !== null ? (price * (pctChapa/100)) : 0;
       } else if (areaCm2 !== null && areaCm2 !== 0) {
         const costm2 = n(w.costm2);
-        custoMdf = costm2 !== null ? (costm2 * (areaCm2/10000)) : null;
-      } else {
-        custoMdf = 0;
+        custoMdf = costm2 !== null ? (costm2 * (areaCm2/10000)) : 0;
       }
     }
 
@@ -1116,6 +1204,7 @@
       nome: state.sim.nome ?? null,
       sku: state.sim.sku ?? null,
       wood: w?.name ?? null,
+      woodItems,
       canal,
       taxaCanal,
       margemUsada,
@@ -1142,7 +1231,7 @@
     } else {
       const area = w.area ? w.area.toLocaleString("pt-BR", {maximumFractionDigits: 4}) : "—";
       const costm2 = w.costm2 ? fmtBRL(w.costm2) : "—";
-      note.innerHTML = `<b>${w.name}</b> • ${w.thickness ?? "—"}mm • Chapa: ${w.width ?? "—"}×${w.height ?? "—"}cm • Área: ${area} m² • Custo/m²: ${costm2}`;
+      note.innerHTML = `<b>${w.name}</b> • ${w.thickness ?? "—"}mm • Chapa: ${w.width ?? "—"}×${w.height ?? "—"}cm • Área: ${area} m² • Custo/m²: ${costm2}${resumoMadeiras.length ? `<br><small>Itens: ${resumoMadeiras.join(" • ")}</small>` : ""}`;
     }
 
     document.getElementById("k_custo_total").textContent = fmtBRL(custoTotal);
@@ -1166,6 +1255,23 @@
   el.wood.addEventListener("change", calcSim);
   el.canal.addEventListener("change", calcSim);
 
+  simWoodItemsContainer.addEventListener("input", calcSim);
+  simWoodItemsContainer.addEventListener("change", calcSim);
+  simWoodItemsContainer.addEventListener("click", (event) => {
+    const idx = event.target?.dataset?.simRemove;
+    if (idx === undefined) return;
+    state.sim.woodItems = normalizeWoodItems(state.sim.woodItems).filter((_, i) => i !== Number(idx));
+    if (!state.sim.woodItems.length) state.sim.woodItems = [emptyWoodItem()];
+    renderSimWoodItems();
+    calcSim();
+  });
+  document.getElementById("btnAddSimWood").addEventListener("click", () => {
+    state.sim.woodItems = normalizeWoodItems(state.sim.woodItems);
+    state.sim.woodItems.push(emptyWoodItem());
+    renderSimWoodItems();
+    calcSim();
+  });
+
   document.getElementById("btnRecalcular").addEventListener("click", calcSim);
   document.getElementById("btnLimpar").addEventListener("click", () => {
     el.comp.value = "";
@@ -1173,7 +1279,7 @@
     el.pct.value = "";
     el.margem.value = "";
     // garantir limpeza total (inclui compatibilidade de área antiga)
-    state.sim = {...(state.sim || {}), comprimento: null, largura: null, areaCm2: null};
+    state.sim = {...(state.sim || {}), comprimento: null, largura: null, areaCm2: null, woodItems: [emptyWoodItem()]};
     saveSimToState();
     calcSim();
   });
@@ -1272,6 +1378,59 @@
     margem: document.getElementById("prod_margem"),
     obs: document.getElementById("prod_obs"),
   };
+  const prodWoodItemsContainer = document.getElementById("prodWoodItems");
+
+  function normalizeProductWoodItems(items) {
+    if (!Array.isArray(items) || !items.length) return [emptyWoodItem()];
+    return items.map((item) => ({
+      wood: item?.wood || state.woods[0]?.name || "",
+      espessura: item?.espessura || "",
+      comprimento: n(item?.comprimento),
+      largura: n(item?.largura),
+    }));
+  }
+
+  function renderProductWoodItems(items = null) {
+    const sourceItems = normalizeProductWoodItems(items || []);
+    prodWoodItemsContainer.innerHTML = "";
+    sourceItems.forEach((item, idx) => {
+      const row = document.createElement("div");
+      row.className = "wood-item";
+      row.innerHTML = `
+        <div class="wood-item-grid">
+          <div><label>Madeira</label><select data-prod-wood="${idx}"></select></div>
+          <div><label>Espessura</label><input data-prod-thickness="${idx}" type="text" placeholder="Ex.: 6mm" /></div>
+          <div><label>Comprimento (cm)</label><input data-prod-comp="${idx}" type="number" step="0.01" /></div>
+          <div><label>Largura (cm)</label><input data-prod-larg="${idx}" type="number" step="0.01" /></div>
+          <button class="btn danger" type="button" data-prod-remove="${idx}">Remover</button>
+        </div>`;
+      prodWoodItemsContainer.appendChild(row);
+
+      const woodSelect = row.querySelector(`[data-prod-wood="${idx}"]`);
+      state.woods.forEach((w) => {
+        const opt = document.createElement("option");
+        opt.value = w.name;
+        opt.textContent = `${w.name} (${w.thickness ?? "—"}mm)`;
+        woodSelect.appendChild(opt);
+      });
+      woodSelect.value = item.wood || state.woods[0]?.name || "";
+      row.querySelector(`[data-prod-thickness="${idx}"]`).value = item.espessura || "";
+      row.querySelector(`[data-prod-comp="${idx}"]`).value = item.comprimento ?? "";
+      row.querySelector(`[data-prod-larg="${idx}"]`).value = item.largura ?? "";
+    });
+  }
+
+  function getProductWoodItemsFromForm() {
+    return Array.from(prodWoodItemsContainer.querySelectorAll(".wood-item")).map((row) => {
+      const idx = row.querySelector("[data-prod-wood]")?.dataset.prodWood;
+      return {
+        wood: row.querySelector(`[data-prod-wood="${idx}"]`)?.value || state.woods[0]?.name || "",
+        espessura: row.querySelector(`[data-prod-thickness="${idx}"]`)?.value?.trim() || "",
+        comprimento: n(row.querySelector(`[data-prod-comp="${idx}"]`)?.value),
+        largura: n(row.querySelector(`[data-prod-larg="${idx}"]`)?.value),
+      };
+    });
+  }
   let editingProductId = null;
   let lastProductCalc = null;
 
@@ -1288,6 +1447,7 @@
       opt.textContent = `${w.name} (${w.thickness ?? "—"}mm)`;
       produtoForm.wood.appendChild(opt);
     });
+    renderProductWoodItems(getProductWoodItemsFromForm());
   }
 
   function resetProdutoForm() {
@@ -1299,6 +1459,7 @@
     produtoForm.embalagem.value = state.params.embalagem ?? 0;
     produtoForm.margem.value = state.params.margemDesejada ?? 0;
     document.getElementById("prodResumoCalc").textContent = "Preencha os dados e clique em recalcular.";
+    renderProductWoodItems([emptyWoodItem()]);
     lastProductCalc = null;
   }
 
@@ -1315,9 +1476,16 @@
     const margemDesejada = n(produtoForm.margem.value) ?? (n(state.params.margemDesejada) ?? 0);
     const taxaCanal = n(state.params.taxas?.[canal]) ?? 0;
     const areaCm2 = comp * larg;
+    const woodItems = normalizeProductWoodItems(getProductWoodItemsFromForm());
 
     let custoMdf = 0;
-    if (pctChapa && n(w.price) !== null) custoMdf = n(w.price) * (pctChapa/100);
+    if (woodItems.length) {
+      woodItems.forEach((item) => {
+        const itemWood = woodComputed(getWoodByName(item.wood) || {});
+        const itemAreaCm2 = (n(item.comprimento) ?? 0) * (n(item.largura) ?? 0);
+        if (itemAreaCm2 > 0 && n(itemWood.costm2) !== null) custoMdf += n(itemWood.costm2) * (itemAreaCm2/10000);
+      });
+    } else if (pctChapa && n(w.price) !== null) custoMdf = n(w.price) * (pctChapa/100);
     else if (areaCm2 && n(w.costm2) !== null) custoMdf = n(w.costm2) * (areaCm2/10000);
 
     const custoLaser = ((n(state.params.custoHoraLaser) ?? 0)/60) * (tCorte + tGrav);
@@ -1341,6 +1509,7 @@
       woodId: produtoForm.wood.value,
       madeira: w.name || null,
       espessura: produtoForm.espessura.value.trim() || (w.thickness ? `${w.thickness}mm` : null),
+      woodItems,
       dimensoes: { comp, larg, pctChapa: pctChapa ?? null },
       tempos: { corte: tCorte, gravacao: tGrav, montagem: tMont },
       embalagem,
@@ -1439,6 +1608,7 @@
     produtoForm.obs.value = p.observacoesTecnicas ?? "";
     produtoForm.canal.value = p.canal || "Shopee";
     produtoForm.margem.value = p.margemDesejada ?? "";
+    renderProductWoodItems(normalizeProductWoodItems(p.woodItems));
     lastProductCalc = p;
   }
 
@@ -1797,6 +1967,18 @@
     invForm.obs.value = "";
   });
 
+  prodWoodItemsContainer.addEventListener("click", (event) => {
+    const idx = event.target?.dataset?.prodRemove;
+    if (idx === undefined) return;
+    const items = normalizeProductWoodItems(getProductWoodItemsFromForm()).filter((_, i) => i !== Number(idx));
+    renderProductWoodItems(items.length ? items : [emptyWoodItem()]);
+  });
+  document.getElementById("btnAddProdWood").addEventListener("click", () => {
+    const items = normalizeProductWoodItems(getProductWoodItemsFromForm());
+    items.push(emptyWoodItem());
+    renderProductWoodItems(items);
+  });
+
   document.getElementById("btnRecalcularProduto").addEventListener("click", () => {
     const calc = computeProdutoFromForm();
     if (!calc.nome || !calc.sku || !calc.categoria || !calc.woodId) return alert("Preencha Nome, SKU, Categoria e Madeira.");
@@ -1862,6 +2044,7 @@
     produtoForm.embalagem.value = lastCalc.embalagem ?? state.params.embalagem ?? 0;
     produtoForm.canal.value = lastCalc.canal || "Shopee";
     produtoForm.margem.value = lastCalc.margemUsada ?? state.params.margemDesejada ?? 0;
+    renderProductWoodItems(normalizeProductWoodItems(lastCalc.woodItems));
   });
 
   // ====== PEDIDOS ======
