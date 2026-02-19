@@ -515,6 +515,18 @@
     </div>
 
     <div class="card" style="margin-top:14px;">
+      <h2>Filtro de lançamentos</h2>
+      <div class="muted">Escolha um período para visualizar somente os lançamentos registrados entre as datas.</div>
+      <div class="grid" style="margin-top:10px;">
+        <div class="row"><label>Data inicial</label><input id="finFilterStart" type="date" /></div>
+        <div class="row"><label>Data final</label><input id="finFilterEnd" type="date" /></div>
+      </div>
+      <div class="btnbar">
+        <button class="btn" id="btnClearFinanceFilter">Limpar filtro</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
       <h2>Resultado Real do Mês</h2>
       <div class="kpis">
         <div class="kpi"><div class="t">Lucro estimado (pedidos)</div><div class="v" id="finLucroEstimado">R$ 0,00</div></div>
@@ -2077,11 +2089,19 @@
     return { month: now.getMonth(), year: now.getFullYear() };
   }
 
-  function financeMonthData() {
+  function financeMonthData(dateRange) {
     const range = currentMonthRange();
-    const entries = (state.finance?.entries || []).filter((e) => {
+    const allEntries = (state.finance?.entries || []).filter((e) => {
       const dt = new Date((e.date || e.createdAt || new Date().toISOString()) + ((e.date || '').includes('T') ? '' : 'T00:00:00'));
       return dt.getMonth() === range.month && dt.getFullYear() === range.year;
+    });
+    const entries = allEntries.filter((e) => {
+      if (!dateRange?.start && !dateRange?.end) return true;
+      const date = e.date || (e.createdAt ? e.createdAt.slice(0,10) : '');
+      if (!date) return false;
+      if (dateRange?.start && date < dateRange.start) return false;
+      if (dateRange?.end && date > dateRange.end) return false;
+      return true;
     });
     const fixedCosts = (state.finance?.fixedCosts || []).reduce((acc, c) => acc + (n(c.value) ?? 0), 0);
 
@@ -2098,7 +2118,7 @@
     const fluxoCaixa = entradaRecebida - saidaPaga;
     const lucroReal = entradaRecebida - saidaPaga - fixedCosts;
 
-    return { entries, fixedCosts, entradaRecebida, saidaPaga, pagamentoPendente, fluxoCaixa, lucroReal };
+    return { entries, fixedCosts, entradaRecebida, saidaPaga, pagamentoPendente, fluxoCaixa, lucroReal, totalEntries: allEntries.length };
   }
 
   function renderFinance() {
@@ -2106,7 +2126,10 @@
     const entriesBody = document.querySelector('#finEntriesTable tbody');
     if (!fixedBody || !entriesBody) return;
 
-    const data = financeMonthData();
+    const filterStart = document.getElementById('finFilterStart')?.value || '';
+    const filterEnd = document.getElementById('finFilterEnd')?.value || '';
+    const hasInvalidRange = !!(filterStart && filterEnd && filterStart > filterEnd);
+    const data = financeMonthData(hasInvalidRange ? null : { start: filterStart, end: filterEnd });
     const dash = getDashboardData();
 
     document.getElementById('finEntradaRecebida').textContent = fmtBRL(data.entradaRecebida);
@@ -2117,7 +2140,12 @@
     document.getElementById('finLucroReal').textContent = fmtBRL(data.lucroReal);
 
     const dif = data.lucroReal - (dash.lucroMes || 0);
-    document.getElementById('finResumo').textContent = `Lucro real (${fmtBRL(data.lucroReal)}) x estimado (${fmtBRL(dash.lucroMes)}): diferença de ${fmtBRL(dif)}.`;
+    const filterLabel = hasInvalidRange
+      ? ' Período inválido: a data inicial deve ser menor ou igual à data final.'
+      : ((filterStart || filterEnd)
+        ? ` Filtro aplicado: ${filterStart ? new Date(filterStart + 'T00:00:00').toLocaleDateString('pt-BR') : 'início'} até ${filterEnd ? new Date(filterEnd + 'T00:00:00').toLocaleDateString('pt-BR') : 'hoje'}.`
+        : '');
+    document.getElementById('finResumo').textContent = `Lucro real (${fmtBRL(data.lucroReal)}) x estimado (${fmtBRL(dash.lucroMes)}): diferença de ${fmtBRL(dif)}.${filterLabel}`;
 
     fixedBody.innerHTML = ((state.finance?.fixedCosts || []).length
       ? (state.finance.fixedCosts || []).map((c) => `
@@ -2138,7 +2166,7 @@
           <td class="right">${fmtBRL(n(e.value) ?? 0)}</td>
           <td class="right"><button class="btn danger" data-del-fin="${e.id}">Excluir</button></td>
         </tr>`).join('')
-      : '<tr><td colspan="6" class="muted">Nenhum lançamento financeiro no mês.</td></tr>');
+      : `<tr><td colspan="6" class="muted">${hasInvalidRange ? 'Ajuste o período para visualizar os lançamentos.' : ((filterStart || filterEnd) ? 'Nenhum lançamento encontrado no período selecionado.' : 'Nenhum lançamento financeiro no mês.')}</td></tr>`);
 
     fixedBody.querySelectorAll('[data-del-fixed]').forEach((btn) => btn.addEventListener('click', () => {
       state.finance.fixedCosts = (state.finance.fixedCosts || []).filter((c) => c.id !== btn.dataset.delFixed);
@@ -2320,6 +2348,18 @@
     salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
     renderFinance();
     renderDashboard();
+  });
+
+  ['finFilterStart', 'finFilterEnd'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('change', () => {
+      renderFinance();
+    });
+  });
+
+  document.getElementById('btnClearFinanceFilter')?.addEventListener('click', () => {
+    document.getElementById('finFilterStart').value = '';
+    document.getElementById('finFilterEnd').value = '';
+    renderFinance();
   });
 
   document.getElementById('btnAddFinanceEntry').addEventListener('click', () => {
