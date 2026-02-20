@@ -21,9 +21,14 @@
     .top-actions{display:flex; gap:10px; align-items:center;}
     .ghost-btn{border:1px solid var(--border); border-radius:14px; background:#fffcf9; padding:10px 14px; color:#8d705d; font-weight:600; box-shadow:0 2px 8px rgba(168,138,114,.1);}
     .profile{width:44px; height:44px; border-radius:50%; background:#b9c1aa; color:#fff; display:grid; place-items:center; font-weight:700;}
-    .tabs{display:flex; gap:8px; flex-wrap:wrap; padding:10px clamp(14px,2.6vw,32px); border-bottom:1px solid var(--border); background:#fffdfa;}
-    .tab{border:1px solid transparent; background:transparent; color:#8f7a69; padding:11px 16px; border-radius:12px; cursor:pointer; font-weight:600; font-size:21px;}
+    .main-layout{display:grid; grid-template-columns:280px 1fr; min-height:calc(100vh - 106px);}
+    .sidebar{border-right:1px solid var(--border); background:#fffaf6; padding:20px 14px; display:flex; flex-direction:column; gap:14px;}
+    .menu-group{border:1px solid #efe3d9; border-radius:16px; background:#fffdfb; padding:12px;}
+    .menu-title{display:block; margin-bottom:8px; font-size:15px; font-weight:800; color:#816552; letter-spacing:.2px;}
+    .menu-items{display:flex; flex-direction:column; gap:6px;}
+    .tab{width:100%; text-align:left; border:1px solid transparent; background:transparent; color:#8f7a69; padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:600; font-size:15px;}
     .tab.active{color:#6e8a63; background:#f6f1ec; border-color:#e8ddd2;}
+    .content-area{min-width:0;}
     .wrap{padding:20px clamp(14px,2.6vw,32px) 34px;}
     .grid{display:grid; grid-template-columns: 1.1fr .9fr; gap:14px; align-items:start;}
     @media (max-width: 920px){ .grid{grid-template-columns: 1fr;} }
@@ -113,12 +118,16 @@
     .wood-item-grid{display:grid; grid-template-columns:1.2fr .9fr .9fr .9fr auto; gap:8px; align-items:end;}
     @media (max-width: 900px){ .wood-item-grid{grid-template-columns:1fr 1fr;} .wood-item-grid .btn{grid-column:span 2;} }
 
+    @media (max-width: 1080px){
+      .main-layout{grid-template-columns:1fr;}
+      .sidebar{border-right:none; border-bottom:1px solid var(--border);}
+    }
+
     @media (max-width: 880px){
       header{flex-direction:column; align-items:flex-start;}
       header h1{font-size:28px;}
       .top-actions{width:100%;}
       .ghost-btn{flex:1;}
-      .tab{font-size:18px;}
     }
   </style>
 </head>
@@ -139,19 +148,44 @@
   </div>
 </header>
 
-<div class="tabs">
-  <button class="tab active" data-tab="dashboard">Dashboard</button>
-  <button class="tab" data-tab="sim">Simulador</button>
-  <button class="tab" data-tab="madeiras">Madeiras</button>
-  <button class="tab" data-tab="param">Parâmetros</button>
-  <button class="tab" data-tab="prod">Produtos</button>
-  <button class="tab" data-tab="pedidos">Pedidos</button>
-  <button class="tab" data-tab="financeiro">Financeiro</button>
-  <button class="tab" data-tab="estoque">Estoque</button>
-  <button class="tab" data-tab="manual">Manual</button>
-  <button class="tab" data-tab="backup">Backup</button>
-</div>
+<div class="main-layout">
+<aside class="sidebar">
+  <div class="menu-group">
+    <span class="menu-title">📊 Gestão</span>
+    <div class="menu-items">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="sim">Simulador</button>
+    </div>
+  </div>
 
+  <div class="menu-group">
+    <span class="menu-title">📦 Produtos</span>
+    <div class="menu-items">
+      <button class="tab" data-tab="prod">Produtos</button>
+      <button class="tab" data-tab="madeiras">Madeiras</button>
+      <button class="tab" data-tab="estoque">Estoque</button>
+    </div>
+  </div>
+
+  <div class="menu-group">
+    <span class="menu-title">🧾 Vendas</span>
+    <div class="menu-items">
+      <button class="tab" data-tab="pedidos">Pedidos</button>
+      <button class="tab" data-tab="financeiro">Financeiro</button>
+    </div>
+  </div>
+
+  <div class="menu-group">
+    <span class="menu-title">⚙️ Sistema</span>
+    <div class="menu-items">
+      <button class="tab" data-tab="param">Parâmetros</button>
+      <button class="tab" data-tab="backup">Backup</button>
+      <button class="tab" data-tab="manual">Manual</button>
+    </div>
+  </div>
+</aside>
+
+<main class="content-area">
 <div class="wrap">
 
   <!-- DASHBOARD -->
@@ -822,6 +856,8 @@
     </div>
   </section>
 </div>
+</div>
+</main>
 </div>
 
 <script type="module">
