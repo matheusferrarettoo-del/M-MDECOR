@@ -54,6 +54,7 @@
     .table th,.table td{padding:10px; font-size:13px; border-bottom:1px solid var(--border);}
     .table th{text-align:left; color:var(--muted); background:#fcf7f2; font-weight:700}
     .table tr:last-child td{border-bottom:none}
+    .table tr:hover td{background:#fdf8f4;}
     .pill{display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); color:var(--muted);}
     .pill.low{background:#fbe9e9; color:#a55b5b; border-color:#efcaca;}
     .pill.ok{background:#edf5ea; color:#5f7f56; border-color:#d5e5cf;}
@@ -117,6 +118,39 @@
     .wood-item{border:1px dashed var(--border); border-radius:14px; padding:10px; background:#fffbf7;}
     .wood-item-grid{display:grid; grid-template-columns:1.2fr .9fr .9fr .9fr auto; gap:8px; align-items:end;}
     @media (max-width: 900px){ .wood-item-grid{grid-template-columns:1fr 1fr;} .wood-item-grid .btn{grid-column:span 2;} }
+
+    .products-module{background:#fff; border-color:#e8eaf0; box-shadow:0 8px 18px rgba(43,74,128,.08);}
+    #tab-prod{background:#f8f9fa; border-radius:22px; padding:6px;}
+    .products-header{display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px;}
+    .products-toolbar{display:grid; grid-template-columns:1fr 180px; gap:10px; margin-bottom:12px;}
+    .products-stats{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:12px;}
+    .mini-stat{border:1px solid #e2e8f0; border-radius:14px; background:#fff; padding:10px 12px;}
+    .mini-stat .label{font-size:12px; color:#6b7280;}
+    .mini-stat .value{font-size:20px; font-weight:800; margin-top:4px; color:#1f2937;}
+    .products-table-wrap{overflow:auto;}
+    .products-table{border-color:#e2e8f0;}
+    .products-table th,.products-table td{padding:12px;}
+    .products-table th{background:#f1f5f9; color:#4b5563;}
+    .prod-profit{color:#15803d; font-weight:800;}
+    .prod-margin{display:inline-flex; align-items:center; justify-content:center; min-width:48px; background:#ecfdf3; color:#166534; border:1px solid #bbf7d0; border-radius:999px; font-size:12px; font-weight:700; padding:2px 8px;}
+    .prod-status{display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid transparent;}
+    .prod-status.active{background:#e8f1ff; color:#1d4ed8; border-color:#bfdbfe;}
+    .prod-status.archived{background:#f1f5f9; color:#475569; border-color:#e2e8f0;}
+    .prod-actions{display:flex; justify-content:flex-end; align-items:center; gap:8px;}
+    .action-menu{position:relative;}
+    .menu-trigger{width:34px; height:34px; border-radius:10px; border:1px solid #d7deea; background:#fff; color:#334155; font-weight:800; line-height:1;}
+    .menu-list{position:absolute; top:38px; right:0; z-index:12; min-width:144px; border:1px solid #dbe2ee; border-radius:12px; background:#fff; box-shadow:0 12px 20px rgba(30,41,59,.12); overflow:hidden;}
+    .menu-list button{display:block; width:100%; text-align:left; background:#fff; border:none; border-bottom:1px solid #eef2f7; padding:9px 10px; color:#334155; cursor:pointer; font-size:13px;}
+    .menu-list button:last-child{border-bottom:none; color:#b42318;}
+    .menu-list button:hover{background:#f8fafc;}
+    @media (max-width: 900px){
+      .products-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+    }
+    @media (max-width: 620px){
+      .products-header{flex-direction:column; align-items:stretch;}
+      .products-toolbar{grid-template-columns:1fr;}
+      .products-stats{grid-template-columns:1fr;}
+    }
 
     @media (max-width: 1080px){
       .main-layout{grid-template-columns:1fr;}
@@ -417,14 +451,33 @@
   <!-- PRODUTOS -->
   <section id="tab-prod" class="hide">
     <div class="grid">
-      <div class="card">
-        <h2>Módulo Produtos</h2>
-        <div class="muted">Cadastro com ficha técnica, precificação automática e histórico de recálculo.</div>
-        <div class="btnbar">
-          <button class="btn primary" id="btnNovoProduto">Adicionar novo</button>
+      <div class="card products-module">
+        <div class="products-header">
+          <div>
+            <h2>Módulo Produtos</h2>
+            <div class="muted">Cadastro com ficha técnica, precificação automática e histórico de recálculo.</div>
+          </div>
+          <button class="btn primary" id="btnNovoProduto">+ Adicionar Produto</button>
         </div>
-        <div style="margin-top:12px; overflow:auto;">
-          <table class="table" id="prodTable">
+
+        <div class="products-toolbar">
+          <input id="prodSearch" type="search" placeholder="Buscar por nome, SKU ou categoria" />
+          <select id="prodStatusFilter">
+            <option value="todos">Todos</option>
+            <option value="ativos">Ativos</option>
+            <option value="arquivados">Arquivados</option>
+          </select>
+        </div>
+
+        <div class="products-stats" id="prodStatsCards">
+          <div class="mini-stat"><div class="label">Total Produtos</div><div class="value" id="prodStatTotal">0</div></div>
+          <div class="mini-stat"><div class="label">Ativos</div><div class="value" id="prodStatAtivos">0</div></div>
+          <div class="mini-stat"><div class="label">Arquivados</div><div class="value" id="prodStatArquivados">0</div></div>
+          <div class="mini-stat"><div class="label">Lucro Médio</div><div class="value" id="prodStatLucroMedio">R$ 0,00</div></div>
+        </div>
+
+        <div class="products-table-wrap">
+          <table class="table products-table" id="prodTable">
             <thead>
               <tr>
                 <th>Nome</th>
@@ -1520,6 +1573,14 @@
   const prodBody = document.querySelector("#prodTable tbody");
   const histBody = document.querySelector("#histTable tbody");
   const prodFormCard = document.getElementById("prodFormCard");
+  const prodSearchInput = document.getElementById("prodSearch");
+  const prodStatusFilter = document.getElementById("prodStatusFilter");
+  const prodStats = {
+    total: document.getElementById("prodStatTotal"),
+    ativos: document.getElementById("prodStatAtivos"),
+    arquivados: document.getElementById("prodStatArquivados"),
+    lucroMedio: document.getElementById("prodStatLucroMedio"),
+  };
   const produtoForm = {
     nome: document.getElementById("prod_nome"),
     sku: document.getElementById("prod_sku"),
@@ -1704,28 +1765,66 @@
     };
   }
 
+  function updateProductStats(products) {
+    const list = Array.isArray(products) ? products : [];
+    const total = list.length;
+    const ativos = list.filter((p) => p.ativo).length;
+    const arquivados = total - ativos;
+    const lucroMedioValor = total ? list.reduce((acc, p) => acc + (n(p.lucro) ?? 0), 0) / total : 0;
+    if (!prodStats.total) return;
+    prodStats.total.textContent = String(total);
+    prodStats.ativos.textContent = String(ativos);
+    prodStats.arquivados.textContent = String(arquivados);
+    prodStats.lucroMedio.textContent = fmtBRL(lucroMedioValor);
+  }
+
+  function getFilteredProducts() {
+    const term = (prodSearchInput?.value || "").trim().toLowerCase();
+    const status = prodStatusFilter?.value || "todos";
+    return (state.products || []).filter((p) => {
+      const statusMatch = status === "todos" || (status === "ativos" ? !!p.ativo : !p.ativo);
+      const nameMatch = !term || [p.nome, p.sku, p.categoria].some((field) => String(field || "").toLowerCase().includes(term));
+      return statusMatch && nameMatch;
+    });
+  }
+
+  function closeProductActionMenus() {
+    prodBody?.querySelectorAll(".menu-list").forEach((menu) => menu.classList.add("hide"));
+  }
+
   function renderProducts() {
     if (!prodBody) return;
+    const filteredProducts = getFilteredProducts();
     prodBody.innerHTML = "";
-    if (!state.products?.length) {
-      prodBody.innerHTML = '<tr><td colspan="8" class="muted">Nenhum produto cadastrado.</td></tr>';
+    updateProductStats(state.products || []);
+
+    if (!filteredProducts.length) {
+      prodBody.innerHTML = '<tr><td colspan="8" class="muted">Nenhum produto encontrado para os filtros atuais.</td></tr>';
       return;
     }
-    state.products.forEach((p) => {
+
+    filteredProducts.forEach((p) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${p.nome ?? "—"}</td>
+        <td><strong>${p.nome ?? "—"}</strong></td>
         <td>${p.sku ?? "—"}</td>
         <td class="right">${fmtBRL(p.custoTotal ?? 0)}</td>
         <td class="right">${fmtBRL(p.precoSugerido ?? 0)}</td>
-        <td class="right">${fmtBRL(p.lucro ?? 0)}</td>
-        <td class="right">${fmtPct(p.margemLiquida ?? 0)}</td>
-        <td><span class="pill">${p.ativo ? "Ativo" : "Inativo"}</span></td>
+        <td class="right prod-profit">${fmtBRL(p.lucro ?? 0)}</td>
+        <td class="right"><span class="prod-margin">${fmtPct(p.margemLiquida ?? 0)}</span></td>
+        <td><span class="prod-status ${p.ativo ? "active" : "archived"}">${p.ativo ? "Ativo" : "Arquivado"}</span></td>
         <td class="right">
-          <button class="btn" data-pedit="${p.id}">Editar</button>
-          <button class="btn accent" data-pdup="${p.id}">Duplicar</button>
-          <button class="btn" data-pop="${p.id}">Gerar OP</button>
-          <button class="btn danger" data-parq="${p.id}">Arquivar</button>
+          <div class="prod-actions">
+            <button class="btn" data-pedit="${p.id}">Editar</button>
+            <div class="action-menu">
+              <button class="menu-trigger" type="button" data-action-menu="${p.id}" aria-label="Mais ações">⋮</button>
+              <div class="menu-list hide" id="prod-menu-${p.id}">
+                <button type="button" data-pdup="${p.id}">Duplicar</button>
+                <button type="button" data-pop="${p.id}">Gerar OP</button>
+                <button type="button" data-parq="${p.id}">Arquivar</button>
+              </div>
+            </div>
+          </div>
         </td>`;
       prodBody.appendChild(tr);
     });
@@ -1734,6 +1833,15 @@
     prodBody.querySelectorAll("button[data-pdup]").forEach((btn) => btn.addEventListener("click", () => duplicarProduto(btn.dataset.pdup)));
     prodBody.querySelectorAll("button[data-pop]").forEach((btn) => btn.addEventListener("click", () => gerarOrdemProducao(btn.dataset.pop)));
     prodBody.querySelectorAll("button[data-parq]").forEach((btn) => btn.addEventListener("click", () => arquivarProduto(btn.dataset.parq)));
+    prodBody.querySelectorAll("button[data-action-menu]").forEach((btn) => {
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const menu = document.getElementById(`prod-menu-${btn.dataset.actionMenu}`);
+        const wasHidden = menu?.classList.contains("hide");
+        closeProductActionMenus();
+        if (menu && wasHidden) menu.classList.remove("hide");
+      });
+    });
   }
 
   function renderHistorico() {
@@ -2201,6 +2309,10 @@
     resetProdutoForm({ keepOpen: true });
     showProdutoForm();
   });
+
+  prodSearchInput?.addEventListener("input", renderProducts);
+  prodStatusFilter?.addEventListener("change", renderProducts);
+  document.addEventListener("click", () => closeProductActionMenus());
 
   document.getElementById("btnSalvarProduto").addEventListener("click", () => {
     if (!lastCalc) return alert("Recalcule no Simulador antes de enviar para Produtos.");
