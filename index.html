@@ -12,8 +12,9 @@
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial; background:radial-gradient(circle at top,#f9f5f1,var(--bg) 70%); color:var(--text); min-height:100vh;}
-    .app-shell{width:100%; min-height:100vh; margin:0; background:rgba(255,250,246,.9); border:1px solid #efe4db; border-left:none; border-right:none; border-radius:0; box-shadow:none; overflow:hidden; backdrop-filter:blur(4px);}
-    header{padding:22px clamp(14px,2.6vw,32px); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; background:rgba(252,247,242,.92);}
+    .app-shell{width:100%; min-height:100vh; margin:0; display:grid; grid-template-columns:280px 1fr; background:rgba(255,250,246,.9); border:1px solid #efe4db; border-left:none; border-right:none; border-radius:0; box-shadow:none; overflow:hidden; backdrop-filter:blur(4px);}
+    .main-content{min-width:0;}
+    header{padding:22px clamp(14px,2.6vw,32px); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; background:rgba(252,247,242,.92);} 
     .brand{display:flex; align-items:center; gap:16px;}
     .logo-mark{width:58px; height:58px; border-radius:18px; background:linear-gradient(145deg,#ecd7c7,#f8efe8); color:#b99075; font-size:28px; display:grid; place-items:center; font-weight:700; box-shadow:inset 0 1px 0 #fff;}
     header h1{margin:0;font-size:37px;font-weight:500; letter-spacing:.3px; color:#8d705d;}
@@ -21,8 +22,12 @@
     .top-actions{display:flex; gap:10px; align-items:center;}
     .ghost-btn{border:1px solid var(--border); border-radius:14px; background:#fffcf9; padding:10px 14px; color:#8d705d; font-weight:600; box-shadow:0 2px 8px rgba(168,138,114,.1);}
     .profile{width:44px; height:44px; border-radius:50%; background:#b9c1aa; color:#fff; display:grid; place-items:center; font-weight:700;}
-    .tabs{display:flex; gap:8px; flex-wrap:wrap; padding:10px clamp(14px,2.6vw,32px); border-bottom:1px solid var(--border); background:#fffdfa;}
-    .tab{border:1px solid transparent; background:transparent; color:#8f7a69; padding:11px 16px; border-radius:12px; cursor:pointer; font-weight:600; font-size:21px;}
+    .sidebar{padding:22px 14px; border-right:1px solid var(--border); background:#fffaf5; display:flex; flex-direction:column; gap:14px;}
+    .sidebar h2{margin:0 10px 4px; font-size:13px; letter-spacing:.08em; color:#a18470; text-transform:uppercase;}
+    .sidebar-group{border:1px solid var(--border); background:#fffdf9; border-radius:16px; padding:10px;}
+    .sidebar-title{display:flex; align-items:center; gap:8px; font-size:15px; font-weight:700; color:#7f6656; margin-bottom:8px;}
+    .submenu{display:flex; flex-direction:column; gap:6px;}
+    .tab{width:100%; text-align:left; border:1px solid transparent; background:transparent; color:#8f7a69; padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:600; font-size:15px;}
     .tab.active{color:#6e8a63; background:#f6f1ec; border-color:#e8ddd2;}
     .wrap{padding:20px clamp(14px,2.6vw,32px) 34px;}
     .grid{display:grid; grid-template-columns: 1.1fr .9fr; gap:14px; align-items:start;}
@@ -113,17 +118,55 @@
     .wood-item-grid{display:grid; grid-template-columns:1.2fr .9fr .9fr .9fr auto; gap:8px; align-items:end;}
     @media (max-width: 900px){ .wood-item-grid{grid-template-columns:1fr 1fr;} .wood-item-grid .btn{grid-column:span 2;} }
 
+    @media (max-width: 1100px){
+      .app-shell{grid-template-columns:240px 1fr;}
+    }
     @media (max-width: 880px){
+      .app-shell{grid-template-columns:1fr;}
+      .sidebar{border-right:none; border-bottom:1px solid var(--border);}
       header{flex-direction:column; align-items:flex-start;}
       header h1{font-size:28px;}
       .top-actions{width:100%;}
       .ghost-btn{flex:1;}
-      .tab{font-size:18px;}
     }
   </style>
 </head>
 <body>
 <div class="app-shell">
+<aside class="sidebar">
+  <h2>Menu</h2>
+  <div class="sidebar-group">
+    <div class="sidebar-title">📊 Gestão</div>
+    <div class="submenu">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="sim">Simulador</button>
+    </div>
+  </div>
+  <div class="sidebar-group">
+    <div class="sidebar-title">📦 Produtos</div>
+    <div class="submenu">
+      <button class="tab" data-tab="prod">Produtos</button>
+      <button class="tab" data-tab="madeiras">Madeiras</button>
+      <button class="tab" data-tab="estoque">Estoque</button>
+    </div>
+  </div>
+  <div class="sidebar-group">
+    <div class="sidebar-title">🧾 Vendas</div>
+    <div class="submenu">
+      <button class="tab" data-tab="pedidos">Pedidos</button>
+      <button class="tab" data-tab="financeiro">Financeiro</button>
+    </div>
+  </div>
+  <div class="sidebar-group">
+    <div class="sidebar-title">⚙️ Sistema</div>
+    <div class="submenu">
+      <button class="tab" data-tab="param">Parâmetros</button>
+      <button class="tab" data-tab="backup">Backup</button>
+      <button class="tab" data-tab="manual">Manual</button>
+    </div>
+  </div>
+</aside>
+<div class="main-content">
 <header>
   <div class="brand">
     <div class="logo-mark">M</div>
@@ -138,19 +181,6 @@
     <div class="profile">M</div>
   </div>
 </header>
-
-<div class="tabs">
-  <button class="tab active" data-tab="dashboard">Dashboard</button>
-  <button class="tab" data-tab="sim">Simulador</button>
-  <button class="tab" data-tab="madeiras">Madeiras</button>
-  <button class="tab" data-tab="param">Parâmetros</button>
-  <button class="tab" data-tab="prod">Produtos</button>
-  <button class="tab" data-tab="pedidos">Pedidos</button>
-  <button class="tab" data-tab="financeiro">Financeiro</button>
-  <button class="tab" data-tab="estoque">Estoque</button>
-  <button class="tab" data-tab="manual">Manual</button>
-  <button class="tab" data-tab="backup">Backup</button>
-</div>
 
 <div class="wrap">
 
@@ -823,6 +853,7 @@
   </section>
 </div>
 </div>
+</div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
@@ -1018,24 +1049,27 @@
 
   // ====== UI: Tabs ======
   const tabButtons = document.querySelectorAll(".tab");
-  tabButtons.forEach(btn => btn.addEventListener("click", () => {
+  function activateTab(tabKey) {
     tabButtons.forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    const t = btn.dataset.tab;
+    const activeButton = document.querySelector(`.tab[data-tab="${tabKey}"]`);
+    if (activeButton) activeButton.classList.add("active");
     document.querySelectorAll("section[id^='tab-']").forEach(s => s.classList.add("hide"));
-    document.getElementById("tab-" + t).classList.remove("hide");
-    if (t === "prod") carregarProdutosDoBanco();
-    if (t === "estoque") carregarEstoqueDoBanco();
-    if (t === "dashboard") renderDashboard();
-    if (t === "pedidos") {
+    document.getElementById("tab-" + tabKey).classList.remove("hide");
+
+    if (tabKey === "prod") carregarProdutosDoBanco();
+    if (tabKey === "estoque") carregarEstoqueDoBanco();
+    if (tabKey === "dashboard") renderDashboard();
+    if (tabKey === "pedidos") {
       renderOrders();
       carregarPedidosDoBanco().catch((e) => console.warn("Falha ao carregar pedidos do Firebase:", e));
     }
-    if (t === "financeiro") {
+    if (tabKey === "financeiro") {
       renderFinance();
       carregarFinanceiroDoBanco().catch((e) => console.warn("Falha ao carregar financeiro do Firebase:", e));
     }
-  }));
+  }
+
+  tabButtons.forEach(btn => btn.addEventListener("click", () => activateTab(btn.dataset.tab)));
 
   // ====== Helpers ======
   function n(v) {
@@ -2168,10 +2202,7 @@
 
   document.getElementById("btnSalvarProduto").addEventListener("click", () => {
     if (!lastCalc) return alert("Recalcule no Simulador antes de enviar para Produtos.");
-    tabButtons.forEach(b => b.classList.remove("active"));
-    document.querySelector('.tab[data-tab="prod"]').classList.add("active");
-    document.querySelectorAll("section[id^='tab-']").forEach(s => s.classList.add("hide"));
-    document.getElementById("tab-prod").classList.remove("hide");
+    activateTab("prod");
     showProdutoForm();
 
     produtoForm.nome.value = el.nome.value || lastCalc.nome || "";
