@@ -548,7 +548,7 @@
     <div class="card" style="margin-bottom:14px;">
       <h2>Lista de Pedidos</h2>
       <div class="muted">Fluxo completo: cliente, prazos, status de produção e lucro por pedido.</div>
-      <div class="btnbar"><button class="btn primary" id="btnNovoPedido">Novo pedido</button></div>
+      <div class="btnbar"><button class="btn primary" id="btnNovoPedido">NOVO PEDIDO</button></div>
       <div class="orders-filters">
         <div class="filter-field">
           <label for="ordersDataInicio">Data inicial (pedido)</label>
@@ -569,7 +569,7 @@
     </div>
 
     <div class="orders-layout">
-      <div class="card">
+      <div class="card hide" id="orderFormCard">
         <h2>Criar / Editar Pedido</h2>
         <h3 style="margin:6px 0; font-size:14px;">A) Dados do Cliente</h3>
         <div class="row"><label>Nome</label><input id="order_clienteNome" type="text" /></div>
@@ -2350,6 +2350,7 @@
     { value: "Cancelado", color: "#f6dada", text: "#974747", icon: "🔴" },
   ];
   const orderBody = document.querySelector("#ordersTable tbody");
+  const orderFormCard = document.getElementById("orderFormCard");
   const orderDateFilter = {
     inicio: document.getElementById("ordersDataInicio"),
     fim: document.getElementById("ordersDataFim"),
@@ -2449,6 +2450,11 @@
     document.getElementById("orderResumoProducao").textContent = "Sem OP gerada.";
   }
 
+  function openOrderFormCard(){
+    if (!orderFormCard) return;
+    orderFormCard.classList.remove("hide");
+  }
+
   function createProductionOrderIfNeeded(order, prevStatus){
     if (order.status !== "Aprovado" || prevStatus === "Aprovado") return;
     const exists = (state.productionOrders||[]).some((op)=>op.orderId===order.id);
@@ -2511,11 +2517,15 @@
     orderForm.status.value=o.status||'Orçamento';
     orderItemsDraft=(o.itens||[]).map((it)=>({ ...it, id: crypto?.randomUUID?.() || String(Date.now()+Math.random()) }));
     recalcOrderDraft();
+    openOrderFormCard();
     const op = (state.productionOrders||[]).find((x)=>x.orderId===o.id);
     document.getElementById("orderResumoProducao").textContent = op ? `OP criada: Corte ${fmtNum(op.minutosCorte,0)} min · Montagem ${fmtNum(op.minutosMontagem,0)} min` : 'Sem OP gerada.';
   }
 
-  document.getElementById('btnNovoPedido').addEventListener('click', resetOrderForm);
+  document.getElementById('btnNovoPedido').addEventListener('click', ()=>{
+    resetOrderForm();
+    openOrderFormCard();
+  });
   document.getElementById('btnAddOrderItem').addEventListener('click', ()=>{ orderItemsDraft.push({ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), productId: '', quantidade: 1, precoUnit: 0 }); recalcOrderDraft(); });
   [orderForm.dataEntrega, orderForm.status].forEach((f)=>f.addEventListener('input', renderOrderSummary));
   [orderDateFilter.inicio, orderDateFilter.fim].forEach((f)=>f?.addEventListener('input', renderOrders));
