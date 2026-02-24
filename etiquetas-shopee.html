@@ -8,11 +8,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css?v=20240826" />
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
-  <script src="expedicao-notifier.js"></script>
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <style>
     .shopee-labels {
@@ -433,11 +428,6 @@
                   </div>
                 </div>
               </div>
-              <div class="labels-emails">
-                <label for="gestoresEmails">E-mails do gestor de expedição</label>
-                <input id="gestoresEmails" type="text" placeholder="separados por vírgula" />
-                <p class="labels-hint">Os PDFs serão compartilhados com os e-mails listados. Se houver mais de um, você poderá escolher durante o envio.</p>
-              </div>
             </div>
           </div>
         </div>
@@ -464,37 +454,13 @@
       </div>
       <div class="text-xs text-yellow-700 bg-yellow-100 border border-yellow-200 rounded-md px-3 py-2 flex items-start gap-2">
         <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
-        <span>Não feche a página enquanto as etiquetas são processadas e enviadas.</span>
+        <span>Não feche a página enquanto as etiquetas são processadas.</span>
       </div>
       <button id="processingClose" type="button" class="w-full hidden py-2.5 rounded-lg font-medium text-white bg-green-600 hover:bg-green-700 transition" aria-hidden="true">Fechar</button>
     </div>
   </div>
 
-  <div id="gestorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-    <div class="bg-white w-full max-w-md p-4 rounded-xl shadow-lg space-y-4">
-      <div>
-        <h2 class="text-lg font-semibold text-gray-800">Enviar arquivo para qual gestor?</h2>
-        <p class="text-sm text-gray-500">Escolha o e-mail que receberá a etiqueta processada.</p>
-      </div>
-      <select id="gestorSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></select>
-      <div class="flex justify-end gap-2">
-        <button id="gestorCancel" type="button" class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
-        <button id="gestorConfirm" type="button" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">Confirmar</button>
-      </div>
-    </div>
-  </div>
-
   <script type="module">
-    import { firebaseConfig, labelsPdfStorageBucket } from './firebase-config.js';
-
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-
-    const app = firebase.app();
-    const db = firebase.firestore();
-    const storage = app.storage(labelsPdfStorageBucket || firebaseConfig.storageBucket);
-
     const fileInput = document.getElementById('file');
     const pickupFileInput = document.getElementById('pickupFile');
     const processBtn = document.getElementById('go');
@@ -504,7 +470,6 @@
     const pickupStatusEl = document.getElementById('pickupStatus');
     const logEl = document.getElementById('log');
     const outEl = document.getElementById('out');
-    const gestoresInput = document.getElementById('gestoresEmails');
     const storeNameInput = document.getElementById('storeName');
     const progressBar = document.getElementById('progressBar');
     const progressFill = document.getElementById('progressFill');
@@ -532,15 +497,8 @@
       pickupFileInput.addEventListener('change', () => setStatus('', pickupStatusEl));
     }
 
-    let currentUser = null;
-    let responsavelExpedicaoUid = null;
-    let horariosEtiquetas = [];
     let isProcessing = false;
 
-    const gestorModal = document.getElementById('gestorModal');
-    const gestorSelect = document.getElementById('gestorSelect');
-    const gestorConfirm = document.getElementById('gestorConfirm');
-    const gestorCancel = document.getElementById('gestorCancel');
 
     processingModalCard.dataset.status = 'idle';
 
@@ -635,7 +593,7 @@
     }
 
     function updateAuthUI() {
-      const disabled = isProcessing || !currentUser;
+      const disabled = isProcessing;
       [processBtn, pickupProcessBtn].forEach((btn) => {
         if (!btn) return;
         btn.disabled = disabled;
@@ -703,293 +661,23 @@
       }
     }
 
-    function escolherGestorEmail(emails) {
-      return new Promise((resolve) => {
-        if (!emails || !emails.length) {
-          resolve([]);
-          return;
-        }
-        if (emails.length === 1) {
-          resolve([emails[0]]);
-          return;
-        }
-
-        gestorSelect.innerHTML = '';
-        emails.forEach((email) => {
-          const opt = document.createElement('option');
-          opt.value = email;
-          opt.textContent = email;
-          gestorSelect.appendChild(opt);
-        });
-
-        function closeModal(value) {
-          gestorModal.classList.add('hidden');
-          gestorConfirm.removeEventListener('click', onConfirm);
-          gestorCancel.removeEventListener('click', onCancel);
-          gestorModal.removeEventListener('click', onBackdrop);
-          resolve(value ? [value] : [emails[0]]);
-        }
-
-        function onConfirm() {
-          closeModal(gestorSelect.value || emails[0]);
-        }
-
-        function onCancel() {
-          closeModal(emails[0]);
-        }
-
-        function onBackdrop(event) {
-          if (event.target === gestorModal) {
-            closeModal(emails[0]);
-          }
-        }
-
-        gestorConfirm.addEventListener('click', onConfirm);
-        gestorCancel.addEventListener('click', onCancel);
-        gestorModal.addEventListener('click', onBackdrop);
-        gestorModal.classList.remove('hidden');
-      });
-    }
-
-    async function carregarHorarios() {
-      if (!responsavelExpedicaoUid) return;
-      try {
-        const doc = await db.collection('uid').doc(responsavelExpedicaoUid).get();
-        const data = doc.data() || {};
-        horariosEtiquetas = Array.isArray(data.horariosEtiquetas) ? data.horariosEtiquetas : [];
-      } catch (error) {
-        console.error('Erro ao carregar horários de etiquetas:', error);
-      }
-    }
-
-    function foraDoHorario() {
-      if (!horariosEtiquetas.length) return false;
-      const now = new Date();
-      return !horariosEtiquetas.some((intervalo) => {
-        if (!intervalo?.inicio || !intervalo?.fim) return false;
-        const [ih, im] = intervalo.inicio.split(':').map(Number);
-        const [fh, fm] = intervalo.fim.split(':').map(Number);
-        const start = new Date(now);
-        start.setHours(ih || 0, im || 0, 0, 0);
-        const end = new Date(now);
-        end.setHours(fh || 0, fm || 0, 0, 0);
-        return now >= start && now <= end;
-      });
-    }
-
     async function getNextShopeeLabelNumber(total) {
-      if (!currentUser) return 1;
       const value = Number(total);
       if (!Number.isFinite(value) || value <= 0) return 1;
       const totalSanitizado = Math.max(1, Math.floor(value));
-      const ref = db.collection('uid').doc(currentUser.uid).collection('config').doc('contadores');
-      try {
-        return await db.runTransaction(async (tx) => {
-          const snap = await tx.get(ref);
-          const atual = snap.exists ? Number(snap.data().shopeeLastNumber || 0) : 0;
-          const inicio = atual + 1;
-          const proximo = atual + totalSanitizado;
-          tx.set(ref, { shopeeLastNumber: proximo }, { merge: true });
-          return inicio;
-        });
-      } catch (error) {
-        console.error('Erro ao atualizar o contador de etiquetas Shopee:', error);
-        return 1;
-      }
+      const key = 'shopeeLastNumber';
+      const atual = Number(localStorage.getItem(key) || 0);
+      const inicio = atual + 1;
+      localStorage.setItem(key, String(atual + totalSanitizado));
+      return inicio;
     }
 
-    async function uploadPdfToFirebase(blob, fileName, meta = {}) {
-      if (!currentUser) {
-        throw new Error('Usuário não autenticado.');
-      }
-      try {
-        const gestoresRaw = (gestoresInput.value || '').split(',');
-        const gestoresEmails = gestoresRaw.map((email) => email.trim()).filter(Boolean);
-        const selecionado = await escolherGestorEmail(gestoresEmails);
-        const foraHorarioAtual = foraDoHorario();
-        const contadorInicialMeta = Number.isFinite(meta.contadorInicial)
-          ? Math.floor(meta.contadorInicial)
-          : null;
-        const contadorFinalMeta = Number.isFinite(meta.contadorFinal)
-          ? Math.floor(meta.contadorFinal)
-          : null;
-        const quantidadeMeta = Number.isFinite(meta.quantidade)
-          ? Number(meta.quantidade)
-          : Number.isFinite(meta.totalPaginas)
-            ? Number(meta.totalPaginas)
-            : null;
-        const lojaMeta = typeof meta.loja === 'string' ? meta.loja.trim() : '';
-        const dataCurtaMeta = typeof meta.dataProcessamento === 'string' ? meta.dataProcessamento.trim() : '';
-        const tipoProcessamentoMeta = typeof meta.tipoProcessamento === 'string' ? meta.tipoProcessamento.trim() : '';
-        const origemMeta = typeof meta.origem === 'string' ? meta.origem.trim() : '';
-
-        const docPayload = {
-          ownerUid: currentUser.uid,
-          ownerEmail: currentUser.email,
-          gestoresExpedicaoEmails: selecionado,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          name: fileName,
-          foraHorario: foraHorarioAtual,
-        };
-        if (lojaMeta) {
-          docPayload.loja = lojaMeta;
-        }
-        if (dataCurtaMeta) {
-          docPayload.dataProcessamento = dataCurtaMeta;
-        }
-        if (tipoProcessamentoMeta) {
-          docPayload.tipoProcessamento = tipoProcessamentoMeta;
-        }
-        if (origemMeta) {
-          docPayload.origem = origemMeta;
-        }
-        if (Number.isFinite(meta.totalPaginas)) {
-          docPayload.totalPaginas = Number(meta.totalPaginas);
-        }
-        if (Number.isFinite(meta.totalPaginasOrigem)) {
-          docPayload.totalPaginasOrigem = Number(meta.totalPaginasOrigem);
-        }
-        if (quantidadeMeta !== null) {
-          docPayload.quantidade = quantidadeMeta;
-        }
-        if (contadorInicialMeta !== null) {
-          docPayload.contadorInicial = contadorInicialMeta;
-        }
-        if (contadorFinalMeta !== null) {
-          docPayload.contadorFinal = contadorFinalMeta;
-        }
-
-        const docRef = await db.collection('pdfDocs').add(docPayload);
-        const fileRef = storage.ref().child(`pdfs/${currentUser.uid}/${docRef.id}.pdf`);
-        await fileRef.put(blob);
-        const url = await fileRef.getDownloadURL();
-        await docRef.update({ url, storagePath: fileRef.fullPath });
-
-        const resumo = {
-          name: fileName,
-          url,
-          path: fileRef.fullPath,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        };
-        if (lojaMeta) {
-          resumo.loja = lojaMeta;
-        }
-        if (dataCurtaMeta) {
-          resumo.dataProcessamento = dataCurtaMeta;
-        }
-        if (tipoProcessamentoMeta) {
-          resumo.tipoProcessamento = tipoProcessamentoMeta;
-        }
-        if (origemMeta) {
-          resumo.origem = origemMeta;
-        }
-        if (Number.isFinite(meta.totalPaginas)) {
-          resumo.totalPaginas = Number(meta.totalPaginas);
-        }
-        if (Number.isFinite(meta.totalPaginasOrigem)) {
-          resumo.totalPaginasOrigem = Number(meta.totalPaginasOrigem);
-        }
-        if (quantidadeMeta !== null) {
-          resumo.quantidade = quantidadeMeta;
-        }
-        if (contadorInicialMeta !== null) {
-          resumo.contadorInicial = contadorInicialMeta;
-        }
-        if (contadorFinalMeta !== null) {
-          resumo.contadorFinal = contadorFinalMeta;
-        }
-        await db.collection('users').doc(currentUser.uid).collection('etiquetaenvio').add(resumo);
-
-        if (
-          window.ExpedicaoNotifier &&
-          typeof window.ExpedicaoNotifier.notifyNovaEtiqueta === 'function'
-        ) {
-          const additionalData = {};
-          if (contadorInicialMeta !== null) additionalData.contadorInicial = contadorInicialMeta;
-          if (contadorFinalMeta !== null) additionalData.contadorFinal = contadorFinalMeta;
-          if (lojaMeta) additionalData.loja = lojaMeta;
-          if (dataCurtaMeta) additionalData.dataProcessamento = dataCurtaMeta;
-          if (tipoProcessamentoMeta) additionalData.tipoProcessamento = tipoProcessamentoMeta;
-          const notifyPayload = {
-            db,
-            firebase,
-            currentUser,
-            destinatarioEmails: selecionado,
-            destinatarioUids: responsavelExpedicaoUid ? [responsavelExpedicaoUid] : [],
-            arquivoNome: fileName,
-            totalPaginas: Number.isFinite(meta.totalPaginas) ? Number(meta.totalPaginas) : null,
-            foraHorario: foraHorarioAtual,
-            origem: origemMeta || 'Etiquetas Shopee (Corte 15/2/2)',
-            pdfDocId: docRef.id,
-          };
-          if (lojaMeta) {
-            notifyPayload.loja = lojaMeta;
-          }
-          if (dataCurtaMeta) {
-            notifyPayload.dataProcessamento = dataCurtaMeta;
-          }
-          if (tipoProcessamentoMeta) {
-            notifyPayload.tipoProcessamento = tipoProcessamentoMeta;
-          }
-          if (Object.keys(additionalData).length) {
-            notifyPayload.additionalData = additionalData;
-          }
-          await window.ExpedicaoNotifier.notifyNovaEtiqueta(notifyPayload);
-        }
-
-        return { url, storagePath: fileRef.fullPath, docId: docRef.id };
-      } catch (error) {
-        console.error('Erro ao enviar PDF para o Firebase:', error);
-        throw error;
-      }
-    }
-
-    async function carregarDadosUsuario(user) {
-      try {
-        const doc = await db.collection('uid').doc(user.uid).get();
-        const data = doc.data() || {};
-        const emails = data.gestoresExpedicaoEmails || data.responsavelExpedicaoEmail || '';
-        if (Array.isArray(emails)) {
-          gestoresInput.value = emails.join(', ');
-        } else if (typeof emails === 'string') {
-          gestoresInput.value = emails;
-        }
-
-        const respEmail = Array.isArray(data.gestoresExpedicaoEmails)
-          ? data.gestoresExpedicaoEmails[0]
-          : data.responsavelExpedicaoEmail;
-        if (respEmail) {
-          const snap = await db.collection('uid').where('email', '==', respEmail).limit(1).get();
-          if (!snap.empty) {
-            responsavelExpedicaoUid = snap.docs[0].id;
-            await carregarHorarios();
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados do usuário:', error);
-      }
-    }
-
-    firebase.auth().onAuthStateChanged(async (user) => {
-      currentUser = user;
-      if (!user) {
-        setStatus('Faça login para processar as etiquetas.');
-        setStatus('Faça login para processar as etiquetas.', pickupStatusEl);
-      } else {
-        setStatus('');
-        setStatus('', pickupStatusEl);
-        await carregarDadosUsuario(user);
-      }
-      updateAuthUI();
-    });
+    setStatus('Processamento local: o PDF será baixado no seu navegador.');
+    setStatus('Processamento local: o PDF será baixado no seu navegador.', pickupStatusEl);
+    updateAuthUI();
 
     processBtn.addEventListener('click', async () => {
       if (isProcessing) return;
-      if (!currentUser) {
-        alert('Faça login para processar e salvar PDFs.');
-        setStatus('Usuário não autenticado.');
-        return;
-      }
       const file = fileInput.files?.[0];
       if (!file) {
         alert('Selecione um PDF.');
@@ -1230,21 +918,11 @@
         triggerAutomaticDownload(outBlob, finalFileName);
         log('Download automático do PDF final iniciado.');
         const contadorFinal = contadorInicializado ? (proximoNumeroEtiqueta - 1) : null;
-        const uploadInfo = await uploadPdfToFirebase(outBlob, finalFileName, {
-          totalPaginas: totalOutPages,
-          totalPaginasOrigem: srcDoc.getPageCount(),
-          contadorInicial: contadorInicializado ? contadorInicial : null,
-          contadorFinal,
-          loja: storeNameValue,
-          dataProcessamento: shortDate,
-        });
-
         const outUrl = URL.createObjectURL(outBlob);
         let html = `
-          <div class="labels-ok">✅ PDF final gerado e salvo no Firebase.</div>
+          <div class="labels-ok">✅ PDF final gerado com sucesso.</div>
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
             <a class="labels-link" href="${outUrl}" download="${finalFileName}">Baixar PDF final</a>
-            <a class="labels-link" href="${uploadInfo.url}" target="_blank" rel="noopener">Abrir no Firebase</a>
           </div>
         `;
 
@@ -1282,11 +960,6 @@
     if (pickupProcessBtn && pickupFileInput) {
       pickupProcessBtn.addEventListener('click', async () => {
         if (isProcessing) return;
-        if (!currentUser) {
-          alert('Faça login para processar e salvar PDFs.');
-          setStatus('Usuário não autenticado.', pickupStatusEl);
-          return;
-        }
         const file = pickupFileInput.files?.[0];
         if (!file) {
           alert('Selecione um PDF de retirada.');
@@ -1561,23 +1234,11 @@
           triggerAutomaticDownload(outBlob, finalFileName);
           log('Download automático do PDF final iniciado.');
           const contadorFinal = contadorInicializado ? proximoNumeroEtiqueta - 1 : null;
-          const uploadInfo = await uploadPdfToFirebase(outBlob, finalFileName, {
-            totalPaginas: outDoc.getPageCount(),
-            totalPaginasOrigem: srcDoc.getPageCount(),
-            contadorInicial: contadorInicializado ? contadorInicial : null,
-            contadorFinal,
-            loja: storeNameValue,
-            dataProcessamento: shortDate,
-            tipoProcessamento: 'retirada_comprador',
-            origem: 'Etiquetas Shopee (Retirada Comprador)',
-          });
-
           const outUrl = URL.createObjectURL(outBlob);
           let html = `
-            <div class="labels-ok">✅ PDF final gerado e salvo no Firebase.</div>
+            <div class="labels-ok">✅ PDF final gerado com sucesso.</div>
             <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
               <a class="labels-link" href="${outUrl}" download="${finalFileName}">Baixar PDF final</a>
-              <a class="labels-link" href="${uploadInfo.url}" target="_blank" rel="noopener">Abrir no Firebase</a>
             </div>
           `;
 
