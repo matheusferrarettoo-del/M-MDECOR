@@ -55,6 +55,7 @@
     .table th{text-align:left; color:var(--muted); background:#fcf7f2; font-weight:700}
     .table tr:last-child td{border-bottom:none}
     .table tr:hover td{background:#fdf8f4;}
+    .order-product-cell{font-weight:700; color:#8b6a53; text-transform:uppercase; letter-spacing:.2px;}
     .pill{display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; border:1px solid var(--border); color:var(--muted);}
     .pill.low{background:#fbe9e9; color:#a55b5b; border-color:#efcaca;}
     .pill.ok{background:#edf5ea; color:#5f7f56; border-color:#d5e5cf;}
@@ -565,7 +566,7 @@
       </div>
       <div style="overflow:auto; margin-top:12px;">
         <table class="table" id="ordersTable">
-          <thead><tr><th>Nº Pedido</th><th>Cliente</th><th>Canal</th><th>Data pedido</th><th>Prazo</th><th class="right">Valor</th><th class="right">Lucro</th><th>Status</th><th class="right">Ações</th></tr></thead>
+          <thead><tr><th>Nº Pedido</th><th>Canal</th><th>Data pedido</th><th>Prazo</th><th class="right">Valor</th><th class="right">Lucro</th><th>Status</th><th>PRODUTO (SKU)</th><th class="right">Ações</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -2494,8 +2495,17 @@
       .sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
     if(!rows.length){ orderBody.innerHTML='<tr><td colspan="9" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
     rows.forEach((o)=>{
+      const produtosSku = (o.itens || [])
+        .map((it) => {
+          const produto = (state.products || []).find((p) => p.id === it.productId || p.nome === it.nomeProduto);
+          const nome = produto?.nome || it.nomeProduto || "Produto";
+          const sku = produto?.sku ? ` (${produto.sku})` : "";
+          return `${nome}${sku}`;
+        })
+        .filter(Boolean);
+      const produtoSkuLabel = produtosSku.length ? [...new Set(produtosSku)].join(", ") : "—";
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${o.orderNumber||'—'}</td><td>${o.clienteNome||'—'}</td><td>${o.canal||'—'}</td><td>${o.dataPedido||'—'}</td><td>${o.dataEntrega||'—'}</td><td class="right">${fmtBRL(o.valorTotal||0)}</td><td class="right">${fmtBRL(o.lucroTotal||0)}</td><td>${statusPill(o.status||'Orçamento')}</td><td class="right"><button class="btn" data-oedit="${o.id}">Editar</button> <button class="btn danger" data-odel="${o.id}">Excluir</button></td>`;
+      tr.innerHTML=`<td>${o.orderNumber||'—'}</td><td>${o.canal||'—'}</td><td>${o.dataPedido||'—'}</td><td>${o.dataEntrega||'—'}</td><td class="right">${fmtBRL(o.valorTotal||0)}</td><td class="right">${fmtBRL(o.lucroTotal||0)}</td><td>${statusPill(o.status||'Orçamento')}</td><td class="order-product-cell">${produtoSkuLabel}</td><td class="right"><button class="btn" data-oedit="${o.id}">Editar</button> <button class="btn danger" data-odel="${o.id}">Excluir</button></td>`;
       orderBody.appendChild(tr);
     });
     orderBody.querySelectorAll('[data-oedit]').forEach((b)=>b.addEventListener('click',()=>loadOrderForm(b.dataset.oedit)));
