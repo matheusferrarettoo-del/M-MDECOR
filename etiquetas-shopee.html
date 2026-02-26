@@ -1365,6 +1365,7 @@
           const FOOTER_GAP = 0;
           const FOOTER_TOP_OFFSET = 70;
           const FOOTER_BOTTOM_OFFSET = 135;
+          const PACKING_SHIFT_LEFT = 3 * CM;
 
           async function drawEmbeddedFillWidth(dstPage, srcPage, cropBox, x, y, w, h) {
             const embedded = cropBox
@@ -1406,9 +1407,10 @@
             const cropTop = Math.max(0, srcH - FOOTER_TOP_OFFSET);
             const cropBottom = Math.max(0, srcH - FOOTER_BOTTOM_OFFSET);
             const finalTop = Math.max(cropTop, cropBottom + 1);
+            const cropRight = Math.max(1, srcW - PACKING_SHIFT_LEFT);
             const crop = {
               left: 0,
-              right: srcW,
+              right: cropRight,
               top: finalTop,
               bottom: cropBottom,
             };
