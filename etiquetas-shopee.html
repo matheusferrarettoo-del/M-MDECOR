@@ -421,8 +421,7 @@
                     <span id="tiktokStatus" class="labels-status"></span>
                   </div>
                   <div class="labels-hint">
-                    Regras: processa em pares (<strong>etiqueta</strong> + <strong>lista</strong>), ignora última página ímpar e gera saída em <strong>10 × 17 cm</strong>.
-                  </div>
+                    Regras: processa em pares (<strong>etiqueta</strong> + <strong>lista</strong>), ignora última página ímpar, gera saída em <strong>10 × 17 cm</strong> e aplica deslocamento horizontal de <strong>+3 cm</strong> na packing list.                  </div>
                 </div>
               </div>
               <div class="labels-options">
@@ -1418,8 +1417,8 @@
 
             const footerY = FOOTER_GAP;
             const footerH = Math.max(1, labelDraw.drawY - footerY);
-            await drawEmbeddedFillWidth(out, listSrc, crop, 0, footerY, PAGE_W, footerH);
-
+            await drawEmbeddedFillWidth(out, listSrc, crop, FOOTER_X_SHIFT, footerY, PAGE_W, footerH);
+            
             if (dbgDoc) {
               const dbg = dbgDoc.addPage([srcW, srcH]);
               dbg.drawRectangle({
