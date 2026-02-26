@@ -421,8 +421,7 @@
                     <span id="tiktokStatus" class="labels-status"></span>
                   </div>
                   <div class="labels-hint">
-                    Regras: processa em pares (<strong>etiqueta</strong> + <strong>lista</strong>), ignora última página ímpar, gera saída em <strong>10 × 17 cm</strong> e aplica deslocamento horizontal de <strong>+3 cm</strong> na packing list.                  </div>
-                </div>
+                    Regras: processa em pares (<strong>etiqueta</strong> + <strong>lista</strong>), ignora última página ímpar e gera saída em <strong>10 × 17 cm</strong>.                </div>
               </div>
               <div class="labels-options">
                 <div class="labels-field">
@@ -1363,6 +1362,7 @@
           const LABEL_TARGET_H = 14.5 * CM;
           const FOOTER_GAP = 0;
           const FOOTER_X_SHIFT = -4 * CM;
+          const FOOTER_ZOOM = 1.35;
           const FOOTER_TOP_OFFSET = 70;
           const FOOTER_BOTTOM_OFFSET = 135;
           const PACKING_SHIFT_LEFT = 0 * CM;
@@ -1386,6 +1386,30 @@
             });
             return { drawX, drawY, drawW, drawH };
           }
+           function zoomCropBox(cropBox, zoomFactor, pageW, pageH) {
+            const safeZoom = Math.max(1, Number(zoomFactor) || 1);
+            if (safeZoom === 1) return cropBox;
+
+            const width = Math.max(1, cropBox.right - cropBox.left);
+            const height = Math.max(1, cropBox.top - cropBox.bottom);
+            const centerX = cropBox.left + width / 2;
+            const centerY = cropBox.bottom + height / 2;
+            const zoomedWidth = Math.max(1, width / safeZoom);
+            const zoomedHeight = Math.max(1, height / safeZoom);
+
+            const left = Math.max(0, centerX - zoomedWidth / 2);
+            const right = Math.min(pageW, centerX + zoomedWidth / 2);
+            const bottom = Math.max(0, centerY - zoomedHeight / 2);
+            const top = Math.min(pageH, centerY + zoomedHeight / 2);
+
+            return {
+              left,
+              right: Math.max(left + 1, right),
+              bottom,
+              top: Math.max(bottom + 1, top),
+            };
+          }
+
 
           for (let i = 0, pairIndex = 0; i + 1 < totalPages; i += 2, pairIndex++) {
             const labelSrc = srcDoc.getPage(i);
@@ -1414,18 +1438,19 @@
               top: finalTop,
               bottom: cropBottom,
             };
+            const zoomedCrop = zoomCropBox(crop, FOOTER_ZOOM, srcW, srcH);
 
             const footerY = FOOTER_GAP;
             const footerH = Math.max(1, labelDraw.drawY - footerY);
-            await drawEmbeddedFillWidth(out, listSrc, crop, FOOTER_X_SHIFT, footerY, PAGE_W, footerH);
+            await drawEmbeddedFillWidth(out, listSrc, zoomedCrop, FOOTER_X_SHIFT, footerY, PAGE_W, footerH);
             
             if (dbgDoc) {
               const dbg = dbgDoc.addPage([srcW, srcH]);
               dbg.drawRectangle({
-                x: crop.left,
-                y: crop.bottom,
-                width: crop.right - crop.left,
-                height: crop.top - crop.bottom,
+                x: zoomedCrop.left,
+                y: zoomedCrop.bottom,
+                width: zoomedCrop.right - zoomedCrop.left,
+                height: zoomedCrop.top - zoomedCrop.bottom,
                 borderWidth: 1,
                 borderColor: PDFLib.rgb(0.2, 0.7, 0.2),
               });
