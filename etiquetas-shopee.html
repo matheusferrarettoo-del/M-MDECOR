@@ -405,6 +405,25 @@
                     • Processamos pares: <strong>Etiqueta (1ª)</strong>, <strong>Checklist (2ª)</strong>. Última página ímpar (se houver) é ignorada.
                   </div>
                 </div>
+                <div class="labels-workflow">
+                  <div class="labels-workflow-header">
+                    <div class="labels-workflow-title">TikTok (corte de etiqueta)</div>
+                    <p class="labels-workflow-subtitle">Etiqueta completa no topo + faixa útil da packing list no rodapé.</p>
+                  </div>
+                  <label class="labels-drop" for="tiktokFile">
+                    <input id="tiktokFile" type="file" accept="application/pdf" />
+                    <span class="labels-drop-icon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+                    <span>Arraste ou clique para enviar o PDF do TikTok</span>
+                    <span class="labels-drop-note">PDF com pares: etiqueta + packing list</span>
+                  </label>
+                  <div class="labels-actions">
+                    <button id="tiktokGo" type="button" class="labels-start">Iniciar TikTok</button>
+                    <span id="tiktokStatus" class="labels-status"></span>
+                  </div>
+                  <div class="labels-hint">
+                    Regras: processa em pares (<strong>etiqueta</strong> + <strong>lista</strong>), ignora última página ímpar e gera saída em <strong>10 × 17 cm</strong>.
+                  </div>
+                </div>
               </div>
               <div class="labels-options">
                 <div class="labels-field">
@@ -463,11 +482,14 @@
   <script type="module">
     const fileInput = document.getElementById('file');
     const pickupFileInput = document.getElementById('pickupFile');
+    const tiktokFileInput = document.getElementById('tiktokFile');
     const processBtn = document.getElementById('go');
     const pickupProcessBtn = document.getElementById('pickupGo');
+    const tiktokProcessBtn = document.getElementById('tiktokGo');
     const debugCheckbox = document.getElementById('debug');
     const statusEl = document.getElementById('status');
     const pickupStatusEl = document.getElementById('pickupStatus');
+    const tiktokStatusEl = document.getElementById('tiktokStatus');
     const logEl = document.getElementById('log');
     const outEl = document.getElementById('out');
     const storeNameInput = document.getElementById('storeName');
@@ -495,6 +517,9 @@
 
     if (pickupFileInput) {
       pickupFileInput.addEventListener('change', () => setStatus('', pickupStatusEl));
+    }
+    if (tiktokFileInput) {
+      tiktokFileInput.addEventListener('change', () => setStatus('', tiktokStatusEl));
     }
 
     let isProcessing = false;
@@ -672,8 +697,20 @@
       return inicio;
     }
 
+    async function getNextTikTokLabelNumber(total) {
+      const value = Number(total);
+      if (!Number.isFinite(value) || value <= 0) return 1;
+      const totalSanitizado = Math.max(1, Math.floor(value));
+      const key = 'tiktokLastNumber';
+      const atual = Number(localStorage.getItem(key) || 0);
+      const inicio = atual + 1;
+      localStorage.setItem(key, String(atual + totalSanitizado));
+      return inicio;
+    }
+
     setStatus('Processamento local: o PDF será baixado no seu navegador.');
     setStatus('Processamento local: o PDF será baixado no seu navegador.', pickupStatusEl);
+    setStatus('Processamento local: o PDF será baixado no seu navegador.', tiktokStatusEl);
     updateAuthUI();
 
     processBtn.addEventListener('click', async () => {
@@ -1272,6 +1309,250 @@
           toggleProcessingState(false);
         }
       });
+
+    if (tiktokProcessBtn && tiktokFileInput) {
+      tiktokProcessBtn.addEventListener('click', async () => {
+        if (isProcessing) return;
+        const file = tiktokFileInput.files?.[0];
+        if (!file) {
+          alert('Selecione um PDF do TikTok.');
+          return;
+        }
+
+        const storeNameValue = (storeNameInput.value || '').replace(/\s+/g, ' ').trim();
+        if (!storeNameValue) {
+          alert('Informe o nome da loja das etiquetas.');
+          storeNameInput.focus();
+          return;
+        }
+
+        const shortDate = formatShortDate(new Date());
+        const storeFileSegment = sanitizeFileNameSegment(storeNameValue) || 'loja';
+
+        logEl.textContent = '';
+        outEl.innerHTML = 'Processando...';
+        setStatus('Lendo PDF…', tiktokStatusEl);
+        toggleProcessingState(true);
+        openProcessingModal();
+        const startTime = Date.now();
+
+        try {
+          const wantDebug = debugCheckbox.checked;
+          const srcBytes = new Uint8Array(await file.arrayBuffer());
+          const srcDoc = await PDFLib.PDFDocument.load(srcBytes, { updateMetadata: false });
+          const outDoc = await PDFLib.PDFDocument.create();
+          const dbgDoc = wantDebug ? await PDFLib.PDFDocument.create() : null;
+          const totalPages = srcDoc.getPageCount();
+          const totalPairs = Math.floor(totalPages / 2);
+
+          if (totalPages < 2 || totalPairs <= 0) {
+            throw new Error('O PDF do TikTok precisa ter pelo menos 2 páginas (etiqueta + lista).');
+          }
+
+          const expectedOutPages = totalPairs;
+          const labelFont = await outDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+
+          log(`Loja selecionada: ${storeNameValue}`);
+          log('Processamento: TikTok');
+          log(`Páginas originais: ${totalPages}`);
+          if (totalPages % 2 !== 0) {
+            log('Aviso: a última página sem par foi ignorada.');
+          }
+
+          updateProgress(0, totalPairs, startTime, progressFill, progressText, timerText);
+
+          let contadorInicial = null;
+          let proximoNumeroEtiqueta = 1;
+          let contadorInicializado = false;
+          if (expectedOutPages > 0) {
+            const inicial = await getNextTikTokLabelNumber(expectedOutPages);
+            const inicialSanitizado = Number.isFinite(inicial)
+              ? Math.max(1, Math.floor(inicial))
+              : 1;
+            contadorInicial = inicialSanitizado;
+            proximoNumeroEtiqueta = inicialSanitizado;
+            contadorInicializado = true;
+          }
+
+          const CM = 28.3464567;
+          const PAGE_W = 10 * CM;
+          const PAGE_H = 17 * CM;
+          const LABEL_TARGET_H = 14.5 * CM;
+          const FOOTER_GAP = 0;
+          const FOOTER_TOP_OFFSET = 60;
+          const FOOTER_BOTTOM_OFFSET = 135;
+
+          async function drawEmbeddedFillWidth(dstPage, srcPage, cropBox, x, y, w, h) {
+            const embedded = cropBox
+              ? await outDoc.embedPage(srcPage, cropBox)
+              : await outDoc.embedPage(srcPage);
+            const ew = embedded.width;
+            const eh = embedded.height;
+            const scale = w / Math.max(ew, 1);
+            const drawW = w;
+            const drawH = eh * scale;
+            const drawX = x;
+            const drawY = y + (h - drawH) / 2;
+            dstPage.drawPage(embedded, {
+              x: drawX,
+              y: drawY,
+              width: drawW,
+              height: drawH,
+            });
+            return { drawX, drawY, drawW, drawH };
+          }
+
+          for (let i = 0, pairIndex = 0; i + 1 < totalPages; i += 2, pairIndex++) {
+            const labelSrc = srcDoc.getPage(i);
+            const listSrc = srcDoc.getPage(i + 1);
+            const out = outDoc.addPage([PAGE_W, PAGE_H]);
+
+            const labelDraw = await drawEmbeddedFillWidth(
+              out,
+              labelSrc,
+              null,
+              0,
+              PAGE_H - LABEL_TARGET_H,
+              PAGE_W,
+              LABEL_TARGET_H
+            );
+
+            const srcW = listSrc.getWidth();
+            const srcH = listSrc.getHeight();
+            const cropTop = Math.max(0, srcH - FOOTER_TOP_OFFSET);
+            const cropBottom = Math.max(0, srcH - FOOTER_BOTTOM_OFFSET);
+            const finalTop = Math.max(cropTop, cropBottom + 1);
+            const crop = {
+              left: 0,
+              right: srcW,
+              top: finalTop,
+              bottom: cropBottom,
+            };
+
+            const footerY = FOOTER_GAP;
+            const footerH = Math.max(1, labelDraw.drawY - footerY);
+            await drawEmbeddedFillWidth(out, listSrc, crop, 0, footerY, PAGE_W, footerH);
+
+            const numeroEtiquetaAtual = proximoNumeroEtiqueta;
+            proximoNumeroEtiqueta += 1;
+
+            const infoLines = [`Etiqueta Nº: ${numeroEtiquetaAtual}`];
+            if (storeNameValue) {
+              infoLines.push(`Loja: ${storeNameValue}`);
+            }
+            const infoMargin = 12;
+            const infoPaddingX = 8;
+            const infoPaddingY = 6;
+            let infoFontSize = 12;
+            const maxBoxWidth = Math.max(infoMargin * 2, PAGE_W - infoMargin * 2);
+            let widestLine = Math.max(
+              ...infoLines.map((line) => labelFont.widthOfTextAtSize(line, infoFontSize))
+            );
+            if (widestLine + infoPaddingX * 2 > maxBoxWidth) {
+              const scale = (maxBoxWidth - infoPaddingX * 2) / Math.max(widestLine, 1);
+              if (scale > 0) {
+                infoFontSize = Math.max(8, Math.floor(infoFontSize * scale));
+                widestLine = Math.max(
+                  ...infoLines.map((line) => labelFont.widthOfTextAtSize(line, infoFontSize))
+                );
+              }
+            }
+            const infoBoxWidth = Math.min(maxBoxWidth, widestLine + infoPaddingX * 2);
+            const lineHeight = infoFontSize + 4;
+            const infoBoxHeight = infoPaddingY * 2 + lineHeight * infoLines.length;
+            const infoBoxX = PAGE_W - infoBoxWidth - infoMargin;
+            const infoBoxY = Math.max(infoMargin, labelDraw.drawY + infoMargin);
+            out.drawRectangle({
+              x: infoBoxX,
+              y: infoBoxY,
+              width: infoBoxWidth,
+              height: infoBoxHeight,
+              color: PDFLib.rgb(1, 1, 1),
+              opacity: 0.9,
+              borderColor: PDFLib.rgb(0, 0, 0),
+              borderWidth: 0.5,
+            });
+            let textY = infoBoxY + infoBoxHeight - infoPaddingY - infoFontSize;
+            for (const line of infoLines) {
+              out.drawText(line, {
+                x: infoBoxX + infoPaddingX,
+                y: textY,
+                size: infoFontSize,
+                font: labelFont,
+                color: PDFLib.rgb(0, 0, 0),
+              });
+              textY -= lineHeight;
+            }
+
+            if (dbgDoc) {
+              const dbg = dbgDoc.addPage([srcW, srcH]);
+              dbg.drawRectangle({
+                x: crop.left,
+                y: crop.bottom,
+                width: crop.right - crop.left,
+                height: crop.top - crop.bottom,
+                borderWidth: 1,
+                borderColor: PDFLib.rgb(0.2, 0.7, 0.2),
+              });
+            }
+
+            log(`OK ▶ Par ${pairIndex + 1} ▶ etiqueta TikTok + faixa da packing list.`);
+            updateProgress(pairIndex + 1, totalPairs, startTime, progressFill, progressText, timerText);
+          }
+
+          if (outDoc.getPageCount() === 0) {
+            throw new Error('Nenhuma página válida foi gerada.');
+          }
+
+          setStatus('Salvando PDF…', tiktokStatusEl);
+          const outBytes = await outDoc.save();
+          const outBlob = new Blob([outBytes], { type: 'application/pdf' });
+          const finalFileName = `${storeFileSegment}-tiktok-${shortDate}.pdf`;
+          log(`Arquivo final: ${finalFileName}`);
+
+          triggerAutomaticDownload(outBlob, finalFileName);
+          log('Download automático do PDF final iniciado.');
+          const contadorFinal = contadorInicializado ? proximoNumeroEtiqueta - 1 : null;
+          const outUrl = URL.createObjectURL(outBlob);
+          let html = `
+            <div class="labels-ok">✅ PDF TikTok gerado com sucesso.</div>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+              <a class="labels-link" href="${outUrl}" download="${finalFileName}">Baixar PDF final</a>
+            </div>
+          `;
+
+          if (dbgDoc) {
+            const dbgBytes = await dbgDoc.save();
+            const dbgBlob = new Blob([dbgBytes], { type: 'application/pdf' });
+            const dbgUrl = URL.createObjectURL(dbgBlob);
+            html += `<div class="labels-hint" style="margin-top:10px">DEBUG: <a class="labels-link" href="${dbgUrl}" download="debug_tiktok.pdf">Baixar PDF com áreas de recorte</a></div>`;
+          }
+
+          outEl.innerHTML = html;
+          const storeInfo = document.createElement('div');
+          storeInfo.className = 'labels-hint';
+          storeInfo.style.marginTop = '6px';
+          storeInfo.textContent = `Loja: ${storeNameValue} • Data: ${shortDate}`;
+          outEl.appendChild(storeInfo);
+          if (contadorInicializado) {
+            log(`Numeração TikTok aplicada: ${contadorInicial} até ${contadorFinal}`);
+          }
+          setStatus('Concluído.', tiktokStatusEl);
+          const finalTime = Math.round((Date.now() - startTime) / 1000);
+          completeProcessingModal(finalTime);
+        } catch (error) {
+          console.error(error);
+          setStatus('Erro.', tiktokStatusEl);
+          outEl.innerHTML = '';
+          log(`ERRO: ${error?.message || error}`);
+          alert('Erro ao processar o PDF do TikTok.');
+          failProcessingModal('Não foi possível concluir o processamento. Tente novamente.');
+        } finally {
+          toggleProcessingState(false);
+        }
+      });
+    }
+
     }
   </script>
   <script src="shared.js"></script>
