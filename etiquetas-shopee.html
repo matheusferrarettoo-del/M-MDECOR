@@ -1349,9 +1349,6 @@
             throw new Error('O PDF do TikTok precisa ter pelo menos 2 páginas (etiqueta + lista).');
           }
 
-          const expectedOutPages = totalPairs;
-          const labelFont = await outDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-
           log(`Loja selecionada: ${storeNameValue}`);
           log('Processamento: TikTok');
           log(`Páginas originais: ${totalPages}`);
@@ -1360,19 +1357,6 @@
           }
 
           updateProgress(0, totalPairs, startTime, progressFill, progressText, timerText);
-
-          let contadorInicial = null;
-          let proximoNumeroEtiqueta = 1;
-          let contadorInicializado = false;
-          if (expectedOutPages > 0) {
-            const inicial = await getNextTikTokLabelNumber(expectedOutPages);
-            const inicialSanitizado = Number.isFinite(inicial)
-              ? Math.max(1, Math.floor(inicial))
-              : 1;
-            contadorInicial = inicialSanitizado;
-            proximoNumeroEtiqueta = inicialSanitizado;
-            contadorInicializado = true;
-          }
 
           const CM = 28.3464567;
           const PAGE_W = 10 * CM;
@@ -1433,57 +1417,6 @@
             const footerH = Math.max(1, labelDraw.drawY - footerY);
             await drawEmbeddedFillWidth(out, listSrc, crop, 0, footerY, PAGE_W, footerH);
 
-            const numeroEtiquetaAtual = proximoNumeroEtiqueta;
-            proximoNumeroEtiqueta += 1;
-
-            const infoLines = [`Etiqueta Nº: ${numeroEtiquetaAtual}`];
-            if (storeNameValue) {
-              infoLines.push(`Loja: ${storeNameValue}`);
-            }
-            const infoMargin = 12;
-            const infoPaddingX = 8;
-            const infoPaddingY = 6;
-            let infoFontSize = 12;
-            const maxBoxWidth = Math.max(infoMargin * 2, PAGE_W - infoMargin * 2);
-            let widestLine = Math.max(
-              ...infoLines.map((line) => labelFont.widthOfTextAtSize(line, infoFontSize))
-            );
-            if (widestLine + infoPaddingX * 2 > maxBoxWidth) {
-              const scale = (maxBoxWidth - infoPaddingX * 2) / Math.max(widestLine, 1);
-              if (scale > 0) {
-                infoFontSize = Math.max(8, Math.floor(infoFontSize * scale));
-                widestLine = Math.max(
-                  ...infoLines.map((line) => labelFont.widthOfTextAtSize(line, infoFontSize))
-                );
-              }
-            }
-            const infoBoxWidth = Math.min(maxBoxWidth, widestLine + infoPaddingX * 2);
-            const lineHeight = infoFontSize + 4;
-            const infoBoxHeight = infoPaddingY * 2 + lineHeight * infoLines.length;
-            const infoBoxX = PAGE_W - infoBoxWidth - infoMargin;
-            const infoBoxY = Math.max(infoMargin, labelDraw.drawY + infoMargin);
-            out.drawRectangle({
-              x: infoBoxX,
-              y: infoBoxY,
-              width: infoBoxWidth,
-              height: infoBoxHeight,
-              color: PDFLib.rgb(1, 1, 1),
-              opacity: 0.9,
-              borderColor: PDFLib.rgb(0, 0, 0),
-              borderWidth: 0.5,
-            });
-            let textY = infoBoxY + infoBoxHeight - infoPaddingY - infoFontSize;
-            for (const line of infoLines) {
-              out.drawText(line, {
-                x: infoBoxX + infoPaddingX,
-                y: textY,
-                size: infoFontSize,
-                font: labelFont,
-                color: PDFLib.rgb(0, 0, 0),
-              });
-              textY -= lineHeight;
-            }
-
             if (dbgDoc) {
               const dbg = dbgDoc.addPage([srcW, srcH]);
               dbg.drawRectangle({
@@ -1512,7 +1445,6 @@
 
           triggerAutomaticDownload(outBlob, finalFileName);
           log('Download automático do PDF final iniciado.');
-          const contadorFinal = contadorInicializado ? proximoNumeroEtiqueta - 1 : null;
           const outUrl = URL.createObjectURL(outBlob);
           let html = `
             <div class="labels-ok">✅ PDF TikTok gerado com sucesso.</div>
@@ -1534,9 +1466,6 @@
           storeInfo.style.marginTop = '6px';
           storeInfo.textContent = `Loja: ${storeNameValue} • Data: ${shortDate}`;
           outEl.appendChild(storeInfo);
-          if (contadorInicializado) {
-            log(`Numeração TikTok aplicada: ${contadorInicial} até ${contadorFinal}`);
-          }
           setStatus('Concluído.', tiktokStatusEl);
           const finalTime = Math.round((Date.now() - startTime) / 1000);
           completeProcessingModal(finalTime);
