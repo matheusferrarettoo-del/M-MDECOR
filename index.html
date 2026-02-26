@@ -566,7 +566,7 @@
       </div>
       <div style="overflow:auto; margin-top:12px;">
         <table class="table" id="ordersTable">
-          <thead><tr><th>Nº Pedido</th><th>Canal</th><th>Data pedido</th><th>Prazo</th><th class="right">Valor</th><th class="right">Lucro</th><th>Status</th><th>PRODUTO (SKU)</th><th class="right">Ações</th></tr></thead>
+          <thead><tr><th>Nº Pedido</th><th>Nome</th><th>Canal</th><th>Data pedido</th><th>Prazo</th><th class="right">Valor</th><th class="right">Lucro</th><th>Status</th><th>PRODUTO (SKU)</th><th class="right">Ações</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -2493,7 +2493,7 @@
       })
       .slice()
       .sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
-    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="9" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
+    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="10" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
     rows.forEach((o)=>{
       const produtosSku = (o.itens || [])
         .map((it) => {
@@ -2505,7 +2505,7 @@
         .filter(Boolean);
       const produtoSkuLabel = produtosSku.length ? [...new Set(produtosSku)].join(", ") : "—";
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${o.orderNumber||'—'}</td><td>${o.canal||'—'}</td><td>${o.dataPedido||'—'}</td><td>${o.dataEntrega||'—'}</td><td class="right">${fmtBRL(o.valorTotal||0)}</td><td class="right">${fmtBRL(o.lucroTotal||0)}</td><td>${statusPill(o.status||'Orçamento')}</td><td class="order-product-cell">${produtoSkuLabel}</td><td class="right"><button class="btn" data-oedit="${o.id}">Editar</button> <button class="btn danger" data-odel="${o.id}">Excluir</button></td>`;
+      tr.innerHTML=`<td>${o.orderNumber||'—'}</td><td>${o.clienteNome||'—'}</td><td>${o.canal||'—'}</td><td>${o.dataPedido||'—'}</td><td>${o.dataEntrega||'—'}</td><td class="right">${fmtBRL(o.valorTotal||0)}</td><td class="right">${fmtBRL(o.lucroTotal||0)}</td><td>${statusPill(o.status||'Orçamento')}</td><td class="order-product-cell">${produtoSkuLabel}</td><td class="right"><button class="btn" data-oedit="${o.id}">Editar</button> <button class="btn danger" data-odel="${o.id}">Excluir</button></td>`;
       orderBody.appendChild(tr);
     });
     orderBody.querySelectorAll('[data-oedit]').forEach((b)=>b.addEventListener('click',()=>loadOrderForm(b.dataset.oedit)));
