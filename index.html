@@ -2538,7 +2538,7 @@
   function newOrderNumber(){ const seq=(state.orders||[]).length+1; return `PED-${String(seq).padStart(4,'0')}`; }
   function productOptionsHtml(item = {}){
     const selected = item.productId || "";
-    const isManual = !!item.manualProduct || (!selected && String(item.nomeProduto || "").trim());
+    const isManual = !!item.manualProduct || (!selected && (String(item.nomeProduto || "").trim() || String(item.sku || "").trim()));
     return `<option value="">Selecione</option>
       <option value="__manual__" ${isManual ? 'selected' : ''}>Produto não registrado</option>
       ${(state.products||[]).map((p)=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${p.nome||p.sku||'Produto'}</option>`).join('')}`;
@@ -2596,7 +2596,7 @@
       const precoUnit = n(it.precoUnit) ?? (n(p?.precoSugerido) ?? 0);
       const custoUnit = n(p?.custoTotal) ?? 0;
       const lucroUnit = precoUnit - custoUnit;
-      const isManualProduct = !!it.manualProduct || (!it.productId && String(it.nomeProduto || "").trim());
+      const isManualProduct = !!it.manualProduct || (!it.productId && (String(it.nomeProduto || "").trim() || String(it.sku || "").trim()));
       return { ...it, nomeProduto: p?.nome || (isManualProduct ? it.nomeProduto : ""), sku: p?.sku || (isManualProduct ? it.sku : ""), quantidade: qtd, precoUnit, custoUnit, lucroUnit, subtotal: precoUnit * qtd, tempos: { corte: n(p?.tempos?.corte) ?? 0, montagem: n(p?.tempos?.montagem) ?? 0 } };
     });
     renderOrderItems();
@@ -2611,6 +2611,7 @@
       <div>
         <select data-item="${it.id}" data-field="productId">${productOptionsHtml(it)}</select>
         <input data-item="${it.id}" data-field="nomeProduto" type="text" placeholder="Nome do produto não registrado" value="${(it.nomeProduto || "").replace(/"/g, '&quot;')}" ${it.manualProduct ? '' : 'style="display:none"'} />
+        <input data-item="${it.id}" data-field="sku" type="text" placeholder="SKU do produto não registrado" value="${(it.sku || "").replace(/"/g, '&quot;')}" ${it.manualProduct ? '' : 'style="display:none"'} />
       </div>
       <input data-item="${it.id}" data-field="quantidade" type="number" min="1" step="1" value="${it.quantidade ?? 1}" />
       <input data-item="${it.id}" data-field="precoUnit" type="number" step="0.01" value="${it.precoUnit ?? 0}" />
