@@ -431,8 +431,8 @@
                   <input id="storeName" type="text" class="labels-input" placeholder="Ex.: Loja Principal" />
                 </div>
                  <div class="labels-field">
-                  <label for="separationStripCm">Lista separação (cm)</label>
-                  <input id="separationStripCm" type="number" min="0.5" max="15" step="0.1" class="labels-input" value="4" />
+                  <label for="separationStripCm">Altura recorte SKU (cm)</label>
+                  <input id="separationStripCm" type="number" min="0.5" max="6" step="0.1" class="labels-input" value="2.2" />
                 </div>
                 <label class="labels-checkbox">
                   <input id="debug" type="checkbox" />
@@ -661,8 +661,8 @@
     }
     function getSeparationStripCm() {
       const raw = Number(separationStripInput?.value);
-      if (!Number.isFinite(raw)) return 4;
-      return Math.min(15, Math.max(0.5, raw));
+      if (!Number.isFinite(raw)) return 2.2;
+      return Math.min(6, Math.max(0.5, raw));
     }
 
     function updateProgress(current, total, startTime, progressFillEl, progressTextEl, timerTextEl) {
@@ -964,7 +964,9 @@
         const SEP_MARGIN_X = cm(1);
         const SEP_MARGIN_Y = cm(1);
         const SEP_GAP = cm(0.25);
-        const SEP_STRIP_H = cm(separationStripCm);
+        const SEP_CROP_H = cm(separationStripCm);
+        const SKU_CROP_MARGIN_X = cm(0.25);
+        const SKU_CROP_OFFSET_FROM_TOPLABEL_BOTTOM = cm(1.15);
         const sepUsableW = A4_W - SEP_MARGIN_X * 2;
         let sepPage = null;
         let sepCursorY = A4_H - SEP_MARGIN_Y;
@@ -972,13 +974,16 @@
         for (let idx = 0; idx < sepSourcePages.length; idx++) {
           const srcOutPage = sepSourcePages[idx];
           const srcOutW = srcOutPage.getWidth();
-          const srcOutH = srcOutPage.getHeight();
-          const stripTop = Math.min(srcOutH, SEP_STRIP_H);
+          const topLabelBottomY = takeH * zoomFactor;
+          const cropBottom = Math.max(0, topLabelBottomY + SKU_CROP_OFFSET_FROM_TOPLABEL_BOTTOM);
+          const cropTop = Math.min(srcOutPage.getHeight(), cropBottom + SEP_CROP_H);
+          const cropLeft = Math.max(0, SKU_CROP_MARGIN_X);
+          const cropRight = Math.max(cropLeft + 1, srcOutW - SKU_CROP_MARGIN_X);
           const stripCrop = {
-            left: 0,
-            right: srcOutW,
-            bottom: 0,
-            top: stripTop,
+            left: cropLeft,
+            right: cropRight,
+            bottom: cropBottom,
+            top: cropTop,
           };
           const embeddedStrip = await sepDoc.embedPage(srcOutPage, stripCrop);
           const scale = sepUsableW / Math.max(embeddedStrip.width, 1);
@@ -998,7 +1003,7 @@
             height: drawH,
           });
           sepCursorY -= SEP_GAP;
-          log(`Lista separação ▶ Etiqueta ${idx + 1} ▶ faixa inferior de ${separationStripCm.toFixed(1)} cm adicionada.`);
+          log(`Lista separação ▶ Etiqueta ${idx + 1} ▶ recorte SKU (${separationStripCm.toFixed(1)} cm) adicionado.`);
         }
 
 
@@ -1023,7 +1028,7 @@
           <div class="labels-ok">✅ PDF final gerado com sucesso.</div>
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
             <a class="labels-link" href="${outUrl}" download="${finalFileName}">Baixar PDF final</a>
-            <a class="labels-link" href="${sepUrl}" download="${sepFileName}">Baixar lista de separação (faixas de ${separationStripCm.toFixed(1)} cm)</a>          </div>
+            <a class="labels-link" href="${sepUrl}" download="${sepFileName}">Baixar lista de separação (recorte SKU de ${separationStripCm.toFixed(1)} cm)</a>          </div>
         `;
 
         if (dbgDoc) {
