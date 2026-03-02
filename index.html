@@ -645,6 +645,7 @@
           </div>
           <button class="btn primary" id="btnAplicarFiltroData" type="button">🔎 Filtrar</button>
           <button class="btn accent" id="btnLimparFiltroData" type="button">Limpar Filtro</button>
+          <button class="btn" id="btnImprimirSeparacao" type="button">🖨️ Imprimir Separação</button>
         </div>
         <div style="overflow:auto; margin-top:8px;">
           <table class="table" id="ordersTable">
@@ -2462,6 +2463,7 @@
     aplicar: document.getElementById("btnAplicarFiltroData"),
     limpar: document.getElementById("btnLimparFiltroData"),
   };
+  const btnPrintOrderPicking = document.getElementById("btnImprimirSeparacao");
   const orderQuickFilters = Array.from(document.querySelectorAll("[data-order-chip]"));
   const orderForm = {
     clienteNome: document.getElementById("order_clienteNome"), telefone: document.getElementById("order_telefone"), canal: document.getElementById("order_canal"), obs: document.getElementById("order_obs"),
@@ -2644,39 +2646,8 @@
   function renderOrders(){
     if (!orderBody) return;
     orderBody.innerHTML = "";
-    const inicio = orderDateFilter.inicio?.value || "";
-    const fim = orderDateFilter.fim?.value || "";
-    const rows=(state.orders||[])
-      .filter((o)=>{
-        const dataPedido = o.dataPedido || "";
-        if (!dataPedido) return !inicio && !fim;
-        if (inicio && dataPedido < inicio) return false;
-        if (fim && dataPedido > fim) return false;
-        const today = normalizeDateOnly();
-        if (activeOrderQuickFilter === "hoje" && dataPedido !== today) return false;
-        if (activeOrderQuickFilter === "shopee" && String(o.canal || "").toLowerCase() !== "shopee") return false;
-        if (activeOrderQuickFilter === "pendentes" && ["CONCLUIDO", "CANCELADO"].includes(o.status)) return false;
-        if (activeOrderQuickFilter === "producao" && !["A ENVIAR", "ENVIADO"].includes(o.status)) return false;
-        if (activeOrderQuickFilter === "semana") {
-          const startWeek = normalizeDateOnly(startOfWeekDate());
-          if (!dataPedido || dataPedido < startWeek || dataPedido > today) return false;
-        }
-        return true;
-      })
-      .slice()
-      .sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
-
-    const pendingCount = rows.filter((o) => !["CONCLUIDO", "CANCELADO"].includes(o.status)).length;
-    const today = new Date().toISOString().slice(0,10);
-    const todayRows = rows.filter((o) => (o.dataPedido || "") === today);
-    const pedidosHoje = todayRows.length;
-    const faturamento = rows.reduce((acc,o)=>acc + (n(o.valorTotal) ?? 0),0);
-    const lucroHoje = todayRows.reduce((acc,o)=>acc + (n(o.lucroTotal) ?? 0),0);
-    const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
-    setText("ordersTodayCount", String(pedidosHoje));
-    setText("ordersGrossRevenue", fmtBRL(faturamento));
-    setText("ordersTodayProfit", fmtBRL(lucroHoje));
-    setText("ordersPendingCount", String(pendingCount));
+    const rows = getFilteredOrders();
+    updateOrderSummaryCards(rows);
 
     if(!rows.length){ orderBody.innerHTML='<tr><td colspan="9" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
     rows.forEach((o, idx)=>{
@@ -2698,6 +2669,99 @@
     });
     orderBody.querySelectorAll('[data-oedit]').forEach((b)=>b.addEventListener('click',()=>loadOrderForm(b.dataset.oedit)));
     orderBody.querySelectorAll('[data-odel]').forEach((b)=>b.addEventListener('click',()=>deleteOrder(b.dataset.odel)));
+  }
+
+  function getFilteredOrders() {
+    const inicio = orderDateFilter.inicio?.value || "";
+    const fim = orderDateFilter.fim?.value || "";
+    return (state.orders||[])
+      .filter((o)=>{
+        const dataPedido = o.dataPedido || "";
+        if (!dataPedido) return !inicio && !fim;
+        if (inicio && dataPedido < inicio) return false;
+        if (fim && dataPedido > fim) return false;
+        const today = normalizeDateOnly();
+        if (activeOrderQuickFilter === "hoje" && dataPedido !== today) return false;
+        if (activeOrderQuickFilter === "shopee" && String(o.canal || "").toLowerCase() !== "shopee") return false;
+        if (activeOrderQuickFilter === "pendentes" && ["CONCLUIDO", "CANCELADO"].includes(o.status)) return false;
+        if (activeOrderQuickFilter === "producao" && !["A ENVIAR", "ENVIADO"].includes(o.status)) return false;
+        if (activeOrderQuickFilter === "semana") {
+          const startWeek = normalizeDateOnly(startOfWeekDate());
+          if (!dataPedido || dataPedido < startWeek || dataPedido > today) return false;
+        }
+        return true;
+      })
+      .slice()
+      .sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  }
+
+  function updateOrderSummaryCards(rows) {
+    const pendingCount = rows.filter((o) => !["CONCLUIDO", "CANCELADO"].includes(o.status)).length;
+    const today = new Date().toISOString().slice(0,10);
+    const todayRows = rows.filter((o) => (o.dataPedido || "") === today);
+    const pedidosHoje = todayRows.length;
+    const faturamento = rows.reduce((acc,o)=>acc + (n(o.valorTotal) ?? 0),0);
+    const lucroHoje = todayRows.reduce((acc,o)=>acc + (n(o.lucroTotal) ?? 0),0);
+    const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    setText("ordersTodayCount", String(pedidosHoje));
+    setText("ordersGrossRevenue", fmtBRL(faturamento));
+    setText("ordersTodayProfit", fmtBRL(lucroHoje));
+    setText("ordersPendingCount", String(pendingCount));
+  }
+
+  function printPickingList() {
+    const rows = getFilteredOrders();
+    if (!rows.length) {
+      alert("Nenhum pedido encontrado com os filtros atuais para impressão.");
+      return;
+    }
+
+    const periodo = `${orderDateFilter.inicio?.value || "—"} até ${orderDateFilter.fim?.value || "—"}`;
+    const filtroRapido = orderQuickFilters.find((btn) => btn.dataset.orderChip === activeOrderQuickFilter)?.textContent?.trim() || "Todos";
+    const body = rows.map((o) => {
+      const items = (o.itens || []).map((it) => {
+        const produto = findProductByOrderItem(it);
+        const nome = produto?.nome || it.nomeProduto || "Produto";
+        const sku = produto?.sku || it.sku || "—";
+        const qtd = n(it.quantidade) ?? 0;
+        return `<tr><td>${nome}</td><td>${sku}</td><td style="text-align:right">${fmtNum(qtd, 0)}</td></tr>`;
+      }).join("") || '<tr><td colspan="3">Sem itens cadastrados.</td></tr>';
+
+      return `
+        <div class="order-block">
+          <div class="order-head">
+            <strong>${o.orderNumber || "—"}</strong>
+            <span>${o.clienteNome || "—"}</span>
+            <span>Canal: ${o.canal || "—"}</span>
+            <span>Prazo: ${o.dataEntrega || o.dataPedido || "—"}</span>
+          </div>
+          <table>
+            <thead><tr><th>Produto</th><th>SKU</th><th style="text-align:right">Qtd.</th></tr></thead>
+            <tbody>${items}</tbody>
+          </table>
+        </div>
+      `;
+    }).join("");
+
+    const win = window.open("", "_blank");
+    if (!win) return alert("Permita pop-ups para imprimir a lista de separação.");
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"/><title>Lista de Separação</title><style>
+      body{font-family:Arial,sans-serif;padding:20px;color:#111827}
+      h1{margin:0 0 8px;font-size:22px}
+      .meta{font-size:12px;color:#4b5563;margin-bottom:14px}
+      .order-block{border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;margin-bottom:10px;break-inside:avoid}
+      .order-head{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;font-size:12px;margin-bottom:8px}
+      table{width:100%;border-collapse:collapse}
+      th,td{border:1px solid #e5e7eb;padding:6px 8px;font-size:12px;text-align:left}
+      th{background:#f3f4f6}
+    </style></head><body>
+      <h1>Lista de Separação de Pedidos</h1>
+      <div class="meta">Filtro rápido: <strong>${filtroRapido}</strong> · Período: <strong>${periodo}</strong> · Total de pedidos: <strong>${rows.length}</strong></div>
+      ${body}
+    </body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
   }
 
   function deleteOrder(id){
@@ -2756,6 +2820,7 @@
     syncQuickFilterUI();
     renderOrders();
   }));
+  btnPrintOrderPicking?.addEventListener("click", printPickingList);
   document.querySelectorAll("[data-order-form-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
       openOrderFormCard();
