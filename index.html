@@ -1118,6 +1118,33 @@
     };
   }
 
+  function captureInputFocus(root = document) {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLInputElement || active instanceof HTMLSelectElement || active instanceof HTMLTextAreaElement)) return null;
+    if (!root.contains(active)) return null;
+    return {
+      key: active.dataset.item || active.dataset.i,
+      field: active.dataset.field || active.dataset.k,
+      tag: active.tagName,
+      selectionStart: typeof active.selectionStart === "number" ? active.selectionStart : null,
+      selectionEnd: typeof active.selectionEnd === "number" ? active.selectionEnd : null,
+    };
+  }
+
+  function restoreInputFocus(root = document, snapshot = null, selectorFactory = null) {
+    if (!snapshot) return;
+    const selector = selectorFactory ? selectorFactory(snapshot) : null;
+    if (!selector) return;
+    const target = root.querySelector(selector);
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return;
+    target.focus();
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+      if (typeof snapshot.selectionStart === "number" && typeof snapshot.selectionEnd === "number") {
+        target.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd);
+      }
+    }
+  }
+
   async function salvarConfiguracoesNoBanco() {
     if (!USE_FIREBASE_SETTINGS || !db) return;
     await setDoc(doc(db, "app_state", "settings"), {
@@ -1606,6 +1633,7 @@
   const woodsBody = document.querySelector("#woodsTable tbody");
 
   function renderWoods() {
+    const focusSnapshot = captureInputFocus(woodsBody);
     woodsBody.innerHTML = "";
     state.woods.forEach((w, idx) => {
       const wc = woodComputed(w);
@@ -1662,6 +1690,8 @@
         calcSim();
       });
     });
+
+    restoreInputFocus(woodsBody, focusSnapshot, ({ key, field }) => `input[data-i="${key}"][data-k="${field}"]`);
   }
 
   document.getElementById("btnAddWood").addEventListener("click", () => {
@@ -2583,6 +2613,7 @@
   function renderOrderItems(){
     const grid = document.getElementById("orderItemsGrid");
     if (!grid) return;
+    const focusSnapshot = captureInputFocus(grid);
     if (!orderItemsDraft.length) orderItemsDraft = [{ id: crypto?.randomUUID?.() || String(Date.now()), productId: "", quantidade: 1, precoUnit: 0 }];
     grid.innerHTML = `<div class="muted">Produto</div><div class="muted">Qtd</div><div class="muted">Preço unit.</div><div class="muted">Subtotal</div><div></div>` + orderItemsDraft.map((it)=>`<div class="order-item-row">
       <div>
@@ -2612,6 +2643,10 @@
       recalcOrderDraft();
     }));
     grid.querySelectorAll("[data-del-item]").forEach((b)=>b.addEventListener("click",()=>{orderItemsDraft=orderItemsDraft.filter((x)=>x.id!==b.dataset.delItem); recalcOrderDraft();}));
+    restoreInputFocus(grid, focusSnapshot, ({ key, field, tag }) => {
+      if (tag === "SELECT") return `select[data-item="${key}"][data-field="${field}"]`;
+      return `input[data-item="${key}"][data-field="${field}"]`;
+    });
   }
 
   function orderTotals(items){
