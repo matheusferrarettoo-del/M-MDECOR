@@ -1076,7 +1076,7 @@
       return;
     }
 
-    state.orders = orders;
+    state.orders = orders.map((order) => syncOrderWithSavedProducts(order));
     state.productionOrders = productionOrders;
     saveState();
     resetOrderForm();
@@ -1875,6 +1875,7 @@
     if (!USE_FIREBASE_PRODUCTS || !db) return;
     const snap = await getDocs(query(collection(db, "products"), orderBy("updatedAt", "desc")));
     state.products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    state.orders = (state.orders || []).map((order) => syncOrderWithSavedProducts(order));
     renderProducts();
     resetOrderForm();
     renderOrders();
@@ -2311,8 +2312,10 @@
       canal: payload.canal,
     });
 
+    state.orders = (state.orders || []).map((order) => syncOrderWithSavedProducts(order));
     saveState();
     renderProducts();
+    renderOrders();
     renderHistorico();
     renderDashboard();
     resetProdutoForm();
@@ -2391,10 +2394,55 @@
   function statusPill(status){ const m = orderStatusMeta(status); return `<span class="status-pill" style="background:${m.color};color:${m.text};">${m.icon} ${status}</span>`; }
   function newOrderNumber(){ const seq=(state.orders||[]).length+1; return `PED-${String(seq).padStart(4,'0')}`; }
   function productOptionsHtml(selected){ return `<option value="">Selecione</option>${(state.products||[]).map((p)=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${p.nome||p.sku||'Produto'}</option>`).join('')}`; }
+  function findProductByOrderItem(item = {}) {
+    const sku = String(item.sku || "").trim().toLowerCase();
+    const nome = String(item.nomeProduto || "").trim().toLowerCase();
+    return (state.products || []).find((p) => {
+      if (item.productId && p.id === item.productId) return true;
+      if (sku && String(p.sku || "").trim().toLowerCase() === sku) return true;
+      if (nome && String(p.nome || "").trim().toLowerCase() === nome) return true;
+      return false;
+    });
+  }
+
+  function syncOrderWithSavedProducts(order = {}) {
+    const itens = (order.itens || []).map((it) => {
+      const product = findProductByOrderItem(it);
+      const quantidade = Math.max(1, n(it.quantidade) ?? 1);
+      const precoUnit = n(it.precoUnit) ?? (n(product?.precoSugerido) ?? 0);
+      const custoUnit = n(product?.custoTotal) ?? (n(it.custoUnit) ?? 0);
+      const lucroUnit = precoUnit - custoUnit;
+      return {
+        ...it,
+        productId: product?.id || it.productId || null,
+        nomeProduto: product?.nome || it.nomeProduto || "",
+        sku: product?.sku || it.sku || "",
+        quantidade,
+        precoUnit,
+        custoUnit,
+        lucroUnit,
+        tempos: {
+          corte: n(product?.tempos?.corte) ?? n(it.tempos?.corte) ?? 0,
+          montagem: n(product?.tempos?.montagem) ?? n(it.tempos?.montagem) ?? 0,
+        },
+      };
+    });
+
+    const totals = orderTotals(itens);
+    return {
+      ...order,
+      itens,
+      custoTotal: totals.custoTotal,
+      lucroTotal: totals.lucroTotal,
+      valorTotal: totals.valorTotal,
+      minutosCorte: totals.minutosCorte,
+      minutosMontagem: totals.minutosMontagem,
+    };
+  }
 
   function recalcOrderDraft() {
     orderItemsDraft = orderItemsDraft.map((it) => {
-      const p = (state.products || []).find((x) => x.id === it.productId || x.nome === it.nomeProduto || x.sku === it.sku);
+      const p = findProductByOrderItem(it);
       const qtd = Math.max(1, n(it.quantidade) ?? 1);
       const precoUnit = n(it.precoUnit) ?? (n(p?.precoSugerido) ?? 0);
       const custoUnit = n(p?.custoTotal) ?? 0;
@@ -2494,7 +2542,7 @@
     rows.forEach((o)=>{
       const produtosComRef = (o.itens || [])
         .map((it) => {
-          const produto = (state.products || []).find((p) => p.id === it.productId || p.nome === it.nomeProduto);
+          const produto = findProductByOrderItem(it);
           return {
             nome: produto?.nome || it.nomeProduto || "Produto",
             sku: produto?.sku || it.sku || "—",
