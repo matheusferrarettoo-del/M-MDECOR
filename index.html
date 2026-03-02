@@ -2513,7 +2513,13 @@
     return `<span class="status-pill status-${normalized}">${status || "A ENVIAR"}</span>`;
   }
   function newOrderNumber(){ const seq=(state.orders||[]).length+1; return `PED-${String(seq).padStart(4,'0')}`; }
-  function productOptionsHtml(selected){ return `<option value="">Selecione</option>${(state.products||[]).map((p)=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${p.nome||p.sku||'Produto'}</option>`).join('')}`; }
+  function productOptionsHtml(item = {}){
+    const selected = item.productId || "";
+    const isManual = !!item.manualProduct || (!selected && String(item.nomeProduto || "").trim());
+    return `<option value="">Selecione</option>
+      <option value="__manual__" ${isManual ? 'selected' : ''}>Produto não registrado</option>
+      ${(state.products||[]).map((p)=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${p.nome||p.sku||'Produto'}</option>`).join('')}`;
+  }
   function findProductByOrderItem(item = {}) {
     const sku = String(item.sku || "").trim().toLowerCase();
     const nome = String(item.nomeProduto || "").trim().toLowerCase();
@@ -2567,7 +2573,8 @@
       const precoUnit = n(it.precoUnit) ?? (n(p?.precoSugerido) ?? 0);
       const custoUnit = n(p?.custoTotal) ?? 0;
       const lucroUnit = precoUnit - custoUnit;
-      return { ...it, nomeProduto: p?.nome || it.nomeProduto || "", sku: p?.sku || it.sku || "", quantidade: qtd, precoUnit, custoUnit, lucroUnit, subtotal: precoUnit * qtd, tempos: { corte: n(p?.tempos?.corte) ?? 0, montagem: n(p?.tempos?.montagem) ?? 0 } };
+      const isManualProduct = !!it.manualProduct || (!it.productId && String(it.nomeProduto || "").trim());
+      return { ...it, nomeProduto: p?.nome || (isManualProduct ? it.nomeProduto : ""), sku: p?.sku || (isManualProduct ? it.sku : ""), quantidade: qtd, precoUnit, custoUnit, lucroUnit, subtotal: precoUnit * qtd, tempos: { corte: n(p?.tempos?.corte) ?? 0, montagem: n(p?.tempos?.montagem) ?? 0 } };
     });
     renderOrderItems();
     renderOrderSummary();
@@ -2578,7 +2585,10 @@
     if (!grid) return;
     if (!orderItemsDraft.length) orderItemsDraft = [{ id: crypto?.randomUUID?.() || String(Date.now()), productId: "", quantidade: 1, precoUnit: 0 }];
     grid.innerHTML = `<div class="muted">Produto</div><div class="muted">Qtd</div><div class="muted">Preço unit.</div><div class="muted">Subtotal</div><div></div>` + orderItemsDraft.map((it)=>`<div class="order-item-row">
-      <select data-item="${it.id}" data-field="productId">${productOptionsHtml(it.productId)}</select>
+      <div>
+        <select data-item="${it.id}" data-field="productId">${productOptionsHtml(it)}</select>
+        <input data-item="${it.id}" data-field="nomeProduto" type="text" placeholder="Nome do produto não registrado" value="${(it.nomeProduto || "").replace(/"/g, '&quot;')}" ${it.manualProduct ? '' : 'style="display:none"'} />
+      </div>
       <input data-item="${it.id}" data-field="quantidade" type="number" min="1" step="1" value="${it.quantidade ?? 1}" />
       <input data-item="${it.id}" data-field="precoUnit" type="number" step="0.01" value="${it.precoUnit ?? 0}" />
       <input value="${fmtBRL(it.subtotal ?? 0)}" disabled />
@@ -2586,7 +2596,20 @@
     </div>`).join("");
     grid.querySelectorAll("[data-item]").forEach((el)=>el.addEventListener("input",()=>{
       const it = orderItemsDraft.find((x)=>x.id===el.dataset.item); if(!it) return;
-      it[el.dataset.field]=el.value; recalcOrderDraft();
+      if (el.dataset.field === "productId") {
+        if (el.value === "__manual__") {
+          it.productId = "";
+          it.manualProduct = true;
+          it.sku = "";
+        } else {
+          it.productId = el.value;
+          it.manualProduct = false;
+          if (el.value) it.nomeProduto = "";
+        }
+      } else {
+        it[el.dataset.field]=el.value;
+      }
+      recalcOrderDraft();
     }));
     grid.querySelectorAll("[data-del-item]").forEach((b)=>b.addEventListener("click",()=>{orderItemsDraft=orderItemsDraft.filter((x)=>x.id!==b.dataset.delItem); recalcOrderDraft();}));
   }
@@ -2623,7 +2646,7 @@
     const hoje = new Date().toISOString().slice(0,10);
     orderForm.dataPedido.value = hoje;
     orderForm.dataEntrega.value = hoje;
-    orderItemsDraft = [{ id: crypto?.randomUUID?.() || String(Date.now()), productId: "", quantidade: 1, precoUnit: 0 }];
+    orderItemsDraft = [{ id: crypto?.randomUUID?.() || String(Date.now()), productId: "", manualProduct: false, quantidade: 1, precoUnit: 0 }];
     recalcOrderDraft();
     document.getElementById("orderResumoProducao").textContent = "Sem OP gerada.";
   }
@@ -2789,7 +2812,7 @@
     orderForm.obs.value=o.observacoes||''; orderForm.dataPedido.value=o.dataPedido||''; orderForm.dataEntrega.value=o.dataEntrega||'';
     orderForm.status.innerHTML = ORDER_STATUS.map((s)=>`<option value="${s.value}">${s.icon} ${s.value}</option>`).join("");
     orderForm.status.value=o.status||'A ENVIAR';
-    orderItemsDraft=(o.itens||[]).map((it)=>({ ...it, id: crypto?.randomUUID?.() || String(Date.now()+Math.random()) }));
+    orderItemsDraft=(o.itens||[]).map((it)=>({ ...it, manualProduct: !it.productId && !!String(it.nomeProduto || '').trim(), id: crypto?.randomUUID?.() || String(Date.now()+Math.random()) }));
     recalcOrderDraft();
     openOrderFormCard();
     const op = (state.productionOrders||[]).find((x)=>x.orderId===o.id);
@@ -2800,7 +2823,7 @@
     resetOrderForm();
     openOrderFormCard();
   });
-  document.getElementById('btnAddOrderItem').addEventListener('click', ()=>{ orderItemsDraft.push({ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), productId: '', quantidade: 1, precoUnit: 0 }); recalcOrderDraft(); });
+  document.getElementById('btnAddOrderItem').addEventListener('click', ()=>{ orderItemsDraft.push({ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), productId: '', manualProduct: false, quantidade: 1, precoUnit: 0 }); recalcOrderDraft(); });
   [orderForm.dataEntrega, orderForm.status].forEach((f)=>f.addEventListener('input', renderOrderSummary));
   [orderDateFilter.inicio, orderDateFilter.fim].forEach((f)=>f?.addEventListener('input', renderOrders));
   orderDateFilter.aplicar?.addEventListener('click', ()=>{
