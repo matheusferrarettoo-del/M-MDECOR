@@ -117,6 +117,50 @@
     .alert-delay{padding:10px; border-radius:12px; border:1px solid #f0c5b8; background:#fdf1ed; color:#a06052; font-size:12px; margin-top:8px;}
     .orders-filters{display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-top:12px;}
     .orders-filters .filter-field{min-width:200px; flex:1;}
+    .orders-shell{background:#f4f6fb; border:1px solid #dfe5ef; border-radius:20px; padding:14px;}
+    .orders-summary{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px;}
+    .orders-summary-card{border-radius:12px; color:#fff; padding:10px 12px; box-shadow:0 8px 18px rgba(15,23,42,.18);}
+    .orders-summary-card .title{font-size:12px; font-weight:600; opacity:.9;}
+    .orders-summary-card .value{font-size:30px; font-weight:800; line-height:1; margin-top:6px;}
+    .orders-summary-card .value.small{font-size:24px;}
+    .orders-summary-card.blue{background:linear-gradient(145deg,#2d568f,#1f3f73);}
+    .orders-summary-card.teal{background:linear-gradient(145deg,#2f9189,#2a756f);}
+    .orders-summary-card.green{background:linear-gradient(145deg,#5da267,#3e8652);}
+    .orders-summary-card.red{background:linear-gradient(145deg,#f08b81,#e86962);}
+    .orders-panel{margin-top:12px; background:#fff; border:1px solid #dce4ef; border-radius:12px; padding:12px;}
+    .orders-panel h3{margin:0 0 10px; color:#243b53; font-size:18px;}
+    .orders-chip-row{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;}
+    .orders-chip{border:1px solid #d7dee9; background:#f4f7fb; color:#4a5d75; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer;}
+    .orders-chip.active{background:#234f87; border-color:#234f87; color:#fff;}
+    .orders-toolbar{display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; margin-bottom:10px;}
+    .orders-toolbar .filter-field{min-width:170px; flex:1;}
+    .orders-toolbar .btn{height:42px;}
+    .orders-toolbar .btn.primary{background:#285f8d; border-color:#285f8d;}
+    .orders-toolbar .btn.accent{background:#2f8a6f; border-color:#2f8a6f; color:#fff;}
+    .orders-panel .table{border-radius:10px; border-color:#dce4ef;}
+    .orders-panel .table th{background:#eff3f8; color:#44566f; font-size:11px; text-transform:uppercase; letter-spacing:.35px;}
+    .orders-panel .table td{font-size:12px; color:#3f4f63;}
+    .orders-panel .table tr:hover td{background:#f8fbff;}
+    .order-id{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; background:#285f8d; color:#fff; font-size:11px; font-weight:700; margin-right:6px;}
+    .status-pill{display:inline-flex; align-items:center; justify-content:center; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800; border:1px solid transparent; letter-spacing:.2px; text-transform:uppercase;}
+    .status-pill.status-finalizado{background:#4a9d70; border-color:#37845b; color:#fff;}
+    .status-pill.status-concluido{background:#4a9d70; border-color:#37845b; color:#fff;}
+    .status-pill.status-pendente{background:#d2ac45; border-color:#bc9533; color:#fff;}
+    .status-pill.status-aceito{background:#d2ac45; border-color:#bc9533; color:#fff;}
+    .status-pill.status-orcamento{background:#d0b168; border-color:#b39343; color:#fff;}
+    .status-pill.status-montado{background:#3f8c6e; border-color:#32745b; color:#fff;}
+    .status-pill.status-errado{background:#3a8d85; border-color:#2f6f69; color:#fff;}
+    .status-pill.status-atrasado{background:#d56a74; border-color:#b84f59; color:#fff;}
+    .status-pill.status-a-enviar{background:#6c7f99; border-color:#5a6d88; color:#fff;}
+    .status-pill.status-enviado{background:#5f8bb8; border-color:#4f78a0; color:#fff;}
+    .status-pill.status-cancelado{background:#9ca3af; border-color:#7e8693; color:#fff;}
+    .orders-actions{display:flex; justify-content:flex-end; gap:6px;}
+    .orders-actions .icon-btn{width:24px; height:24px; border-radius:6px; border:1px solid #d8e0ec; color:#51657f; background:#fff; display:grid; place-items:center; font-size:13px;}
+    .orders-form-tabs{display:flex; gap:4px; flex-wrap:wrap; margin-top:12px; border-top:1px solid #dde4ee; padding-top:10px;}
+    .orders-form-tabs .btn{background:#f3f6fb; color:#4b5f77; border-color:#d8e0ec;}
+    .orders-form-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;}
+    @media (max-width: 980px){ .orders-summary{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    @media (max-width: 640px){ .orders-summary{grid-template-columns:1fr;} .orders-form-grid{grid-template-columns:1fr;} }
     .wood-items-list{display:flex; flex-direction:column; gap:8px; margin-top:8px;}
     .wood-item{border:1px dashed var(--border); border-radius:14px; padding:10px; background:#fffbf7;}
     .wood-item-grid{display:grid; grid-template-columns:1.2fr .9fr .9fr .9fr auto; gap:8px; align-items:end;}
@@ -549,26 +593,63 @@
 
   <!-- PEDIDOS -->
   <section id="tab-pedidos" class="hide">
-    <div class="card" style="margin-bottom:14px;">
-      <h2>Lista de Pedidos</h2>
-      <div class="muted">Fluxo completo: cliente, prazos, status de produção e lucro por pedido.</div>
-      <div class="btnbar"><button class="btn primary" id="btnNovoPedido">NOVO PEDIDO</button></div>
-      <div class="orders-filters">
-        <div class="filter-field">
-          <label for="ordersDataInicio">Data inicial (pedido)</label>
-          <input id="ordersDataInicio" type="date" />
+    <div class="orders-shell">
+      <div class="orders-summary">
+        <div class="orders-summary-card blue">
+          <div class="title">🛒 Pedidos Hoje</div>
+          <div class="value" id="ordersTodayCount">12</div>
         </div>
-        <div class="filter-field">
-          <label for="ordersDataFim">Data final (pedido)</label>
-          <input id="ordersDataFim" type="date" />
+        <div class="orders-summary-card teal">
+          <div class="title">💰 Faturamento</div>
+          <div class="value small" id="ordersGrossRevenue">R$ 2.480,90</div>
         </div>
-        <button class="btn" id="btnLimparFiltroData" type="button">Limpar filtro</button>
+        <div class="orders-summary-card green">
+          <div class="title">🪙 Lucro Hoje</div>
+          <div class="value small" id="ordersTodayProfit">R$ 820,30</div>
+        </div>
+        <div class="orders-summary-card red">
+          <div class="title">⚠️ Pedidos Pendentes</div>
+          <div class="value" id="ordersPendingCount">3</div>
+        </div>
       </div>
-      <div style="overflow:auto; margin-top:12px;">
-        <table class="table" id="ordersTable">
-          <thead><tr><th>Nº Pedido</th><th>Canal</th><th>Data pedido</th><th class="right">CUSTO PRODUTO</th><th>Status</th><th>SKU</th><th>Nome</th><th class="right">Ações</th></tr></thead>
-          <tbody></tbody>
-        </table>
+
+      <div class="orders-panel">
+        <h3>Lista de Pedidos</h3>
+        <div class="orders-chip-row" aria-label="Filtros rápidos">
+          <button class="orders-chip active" type="button">Todos</button>
+          <button class="orders-chip" type="button">Shopee</button>
+          <button class="orders-chip" type="button">Produção</button>
+          <button class="orders-chip" type="button">Pendentes</button>
+          <button class="orders-chip" type="button">Hoje</button>
+          <button class="orders-chip" type="button">Esta Semana</button>
+        </div>
+        <div class="orders-toolbar">
+          <div class="filter-field">
+            <label for="ordersDataInicio">Data inicial</label>
+            <input id="ordersDataInicio" type="date" />
+          </div>
+          <div class="filter-field">
+            <label for="ordersDataFim">Data final</label>
+            <input id="ordersDataFim" type="date" />
+          </div>
+          <button class="btn primary" type="button">🔎 Filtrar</button>
+          <button class="btn accent" id="btnLimparFiltroData" type="button">Limpar Filtro</button>
+        </div>
+        <div style="overflow:auto; margin-top:8px;">
+          <table class="table" id="ordersTable">
+            <thead><tr><th>Nº</th><th>Pedido</th><th>Canal</th><th>Cliente</th><th>Prazo</th><th class="right">Custo</th><th>SKU</th><th>Status Pedido</th><th class="right">Ações</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="orders-form-tabs">
+          <button class="btn primary" id="btnNovoPedido">+ Adicionar Pedido</button>
+          <button class="btn" type="button">👤 Cliente</button>
+          <button class="btn" type="button">📦 Itens</button>
+          <button class="btn" type="button">📅 Prazos</button>
+          <button class="btn" type="button">💳 Financeiro</button>
+          <button class="btn" type="button">🏭 Produção</button>
+        </div>
       </div>
     </div>
 
@@ -2391,7 +2472,10 @@
     }
   }
   function orderStatusMeta(status){ return ORDER_STATUS.find((s) => s.value === status) || ORDER_STATUS[0]; }
-  function statusPill(status){ const m = orderStatusMeta(status); return `<span class="status-pill" style="background:${m.color};color:${m.text};">${m.icon} ${status}</span>`; }
+  function statusPill(status){
+    const normalized = String(status || "A ENVIAR").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-");
+    return `<span class="status-pill status-${normalized}">${status || "A ENVIAR"}</span>`;
+  }
   function newOrderNumber(){ const seq=(state.orders||[]).length+1; return `PED-${String(seq).padStart(4,'0')}`; }
   function productOptionsHtml(selected){ return `<option value="">Selecione</option>${(state.products||[]).map((p)=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${p.nome||p.sku||'Produto'}</option>`).join('')}`; }
   function findProductByOrderItem(item = {}) {
@@ -2538,8 +2622,21 @@
       })
       .slice()
       .sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
-    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="8" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
-    rows.forEach((o)=>{
+
+    const pendingCount = rows.filter((o) => !["CONCLUIDO", "CANCELADO"].includes(o.status)).length;
+    const today = new Date().toISOString().slice(0,10);
+    const todayRows = rows.filter((o) => (o.dataPedido || "") === today);
+    const pedidosHoje = todayRows.length;
+    const faturamento = rows.reduce((acc,o)=>acc + (n(o.valorTotal) ?? 0),0);
+    const lucroHoje = todayRows.reduce((acc,o)=>acc + (n(o.lucroTotal) ?? 0),0);
+    const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    setText("ordersTodayCount", String(pedidosHoje));
+    setText("ordersGrossRevenue", fmtBRL(faturamento));
+    setText("ordersTodayProfit", fmtBRL(lucroHoje));
+    setText("ordersPendingCount", String(pendingCount));
+
+    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="9" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
+    rows.forEach((o, idx)=>{
       const produtosComRef = (o.itens || [])
         .map((it) => {
           const produto = findProductByOrderItem(it);
@@ -2550,9 +2647,10 @@
         })
         .filter((it) => it.nome || it.sku);
       const skuLabel = produtosComRef.length ? [...new Set(produtosComRef.map((it) => it.sku).filter(Boolean))].join(", ") : "—";
-      const nomeLabel = produtosComRef.length ? [...new Set(produtosComRef.map((it) => it.nome).filter(Boolean))].join(", ") : "—";
+      const nomeLabel = o.clienteNome || "—";
+      const prazoLabel = o.dataEntrega || o.dataPedido || "—";
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${o.orderNumber||'—'}</td><td>${o.canal||'—'}</td><td>${o.dataPedido||'—'}</td><td class="right">${fmtBRL(o.custoTotal||0)}</td><td>${statusPill(o.status||'A ENVIAR')}</td><td>${skuLabel}</td><td class="order-product-cell">${nomeLabel}</td><td class="right"><button class="btn" data-oedit="${o.id}">Editar</button> <button class="btn danger" data-odel="${o.id}">Excluir</button></td>`;
+      tr.innerHTML=`<td><span class="order-id">${idx+1}</span></td><td>${o.orderNumber||'—'}</td><td>${o.canal||'—'}</td><td>${nomeLabel}</td><td>${prazoLabel}</td><td class="right">${fmtBRL(o.custoTotal||0)}</td><td>${skuLabel}</td><td>${statusPill(o.status||'A ENVIAR')}</td><td class="right"><div class="orders-actions"><button class="icon-btn" title="Editar" data-oedit="${o.id}">✎</button><button class="icon-btn" title="Excluir" data-odel="${o.id}">🗑</button></div></td>`;
       orderBody.appendChild(tr);
     });
     orderBody.querySelectorAll('[data-oedit]').forEach((b)=>b.addEventListener('click',()=>loadOrderForm(b.dataset.oedit)));
