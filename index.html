@@ -6,33 +6,34 @@
   <title>Sistema de Precificação MDF + Laser</title>
   <style>
     :root {
-      --bg:#f4eee8; --card:#fffdfb; --muted:#9c8978; --text:#5b4a3f;
-      --accent:#a4ad8f; --accent2:#d2b39a; --danger:#cf9a9a; --border:#e5d8cc;
-      --shadow:0 14px 30px rgba(152,126,104,.12);
+      --bg:#0b1736; --card:#ffffff; --muted:#8b97b4; --text:#20314f;
+      --accent:#3f7cff; --accent2:#34c3ff; --danger:#f87070; --border:#dbe5f4;
+      --shadow:0 18px 34px rgba(7,16,44,.32);
     }
     *{box-sizing:border-box}
-    body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial; background:radial-gradient(circle at top,#f9f5f1,var(--bg) 70%); color:var(--text); min-height:100vh;}
-    .app-shell{width:100%; min-height:100vh; margin:0; background:rgba(255,250,246,.9); border:1px solid #efe4db; border-left:none; border-right:none; border-radius:0; box-shadow:none; overflow:hidden; backdrop-filter:blur(4px);}
-    header{padding:22px clamp(14px,2.6vw,32px); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; background:rgba(252,247,242,.92);}
+    body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial; background:radial-gradient(circle at 20% -20%,#2f467c 0%,#152950 32%,var(--bg) 72%); color:#dbe6ff; min-height:100vh; padding:18px;}
+    .app-shell{width:min(1380px,100%); min-height:calc(100vh - 36px); margin:0 auto; background:linear-gradient(160deg,#1a2b55,#122147); border:1px solid rgba(120,153,219,.25); border-radius:22px; box-shadow:var(--shadow); overflow:hidden; backdrop-filter:blur(4px);}
+    header{padding:18px clamp(14px,2.6vw,28px); border-bottom:1px solid rgba(131,162,223,.2); display:flex; justify-content:space-between; align-items:center; gap:12px; background:rgba(12,28,62,.35);}
     .brand{display:flex; align-items:center; gap:16px;}
-    .logo-mark{width:58px; height:58px; border-radius:18px; background:linear-gradient(145deg,#ecd7c7,#f8efe8); color:#b99075; font-size:28px; display:grid; place-items:center; font-weight:700; box-shadow:inset 0 1px 0 #fff;}
-    header h1{margin:0;font-size:37px;font-weight:500; letter-spacing:.3px; color:#8d705d;}
-    header p{margin:2px 0 0; color:var(--muted); font-size:13px}
+    .logo-mark{width:34px; height:34px; border-radius:10px; background:linear-gradient(145deg,#1f66f0,#49b8ff); color:#f5f9ff; font-size:18px; display:grid; place-items:center; font-weight:700; box-shadow:inset 0 1px 0 rgba(255,255,255,.35);}
+    header h1{margin:0;font-size:26px;font-weight:600; letter-spacing:.2px; color:#f5f9ff;}
+    header p{margin:2px 0 0; color:#99abd0; font-size:13px}
     .top-actions{display:flex; gap:10px; align-items:center;}
-    .ghost-btn{border:1px solid var(--border); border-radius:14px; background:#fffcf9; padding:10px 14px; color:#8d705d; font-weight:600; box-shadow:0 2px 8px rgba(168,138,114,.1);}
-    .profile{width:44px; height:44px; border-radius:50%; background:#b9c1aa; color:#fff; display:grid; place-items:center; font-weight:700;}
+    .ghost-btn{border:1px solid rgba(145,174,233,.28); border-radius:10px; background:rgba(28,53,103,.65); padding:8px 12px; color:#e6efff; font-weight:600;}
+    .profile{width:30px; height:30px; border-radius:50%; background:#a0b4db; color:#284374; display:grid; place-items:center; font-weight:700; font-size:12px;}
     .main-layout{display:grid; grid-template-columns:280px 1fr; min-height:calc(100vh - 106px);}
-    .sidebar{border-right:1px solid var(--border); background:#fffaf6; padding:20px 14px; display:flex; flex-direction:column; gap:14px;}
-    .menu-group{border:1px solid #efe3d9; border-radius:16px; background:#fffdfb; padding:12px;}
-    .menu-title{display:block; margin-bottom:8px; font-size:15px; font-weight:800; color:#816552; letter-spacing:.2px;}
+    .sidebar{border-right:1px solid rgba(137,166,227,.2); background:rgba(14,29,64,.55); padding:18px 12px; display:flex; flex-direction:column; gap:12px;}
+    .menu-group{border:1px solid rgba(120,153,219,.2); border-radius:12px; background:rgba(23,43,84,.6); padding:10px;}
+    .menu-title{display:block; margin-bottom:8px; font-size:13px; font-weight:800; color:#bed0f6; letter-spacing:.2px; text-transform:uppercase;}
     .menu-items{display:flex; flex-direction:column; gap:6px;}
-    .tab{width:100%; text-align:left; border:1px solid transparent; background:transparent; color:#8f7a69; padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:600; font-size:15px;}
-    .tab.active{color:#6e8a63; background:#f6f1ec; border-color:#e8ddd2;}
+    .tab{width:100%; text-align:left; border:1px solid transparent; background:transparent; color:#adc0e8; padding:9px 10px; border-radius:8px; cursor:pointer; font-weight:600; font-size:13px;}
+    .tab.active{color:#fff; background:linear-gradient(90deg,#2f65e5,#3486ff); border-color:rgba(178,207,255,.8);}
     .content-area{min-width:0;}
-    .wrap{padding:20px clamp(14px,2.6vw,32px) 34px;}
+    .wrap{padding:18px clamp(14px,2.6vw,24px) 24px;}
+    .content-area section{background:#edf3ff; border:1px solid #c7d8f6; border-radius:14px; padding:14px; box-shadow:inset 0 1px 0 #fff;}
     .grid{display:grid; grid-template-columns: 1.1fr .9fr; gap:14px; align-items:start;}
     @media (max-width: 920px){ .grid{grid-template-columns: 1fr;} }
-    .card{background:var(--card); border:1px solid var(--border); border-radius:20px; padding:16px; box-shadow:0 8px 20px rgba(162,132,106,.1);}
+    .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; box-shadow:0 10px 18px rgba(44,78,140,.08);}
     .card h2{margin:0 0 10px; font-size:15px}
     .muted{color:var(--muted); font-size:12px; line-height:1.35}
     .row{display:grid; grid-template-columns: 1fr 200px; gap:10px; margin:10px 0; align-items:center;}
@@ -167,7 +168,7 @@
     @media (max-width: 900px){ .wood-item-grid{grid-template-columns:1fr 1fr;} .wood-item-grid .btn{grid-column:span 2;} }
 
     .products-module{background:#fff; border-color:#e8eaf0; box-shadow:0 8px 18px rgba(43,74,128,.08);}
-    #tab-prod{background:#f8f9fa; border-radius:22px; padding:6px;}
+    #tab-prod{background:#edf3ff; border-radius:14px; padding:14px;}
     .products-header{display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px;}
     .products-toolbar{display:grid; grid-template-columns:1fr 180px; gap:10px; margin-bottom:12px;}
     .products-stats{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:12px;}
