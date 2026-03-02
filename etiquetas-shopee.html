@@ -430,6 +430,10 @@
                   <label for="storeName">Loja</label>
                   <input id="storeName" type="text" class="labels-input" placeholder="Ex.: Loja Principal" />
                 </div>
+                 <div class="labels-field">
+                  <label for="separationStripCm">Lista separação (cm)</label>
+                  <input id="separationStripCm" type="number" min="0.5" max="15" step="0.1" class="labels-input" value="4" />
+                </div>
                 <label class="labels-checkbox">
                   <input id="debug" type="checkbox" />
                   <span>Gerar PDF DEBUG</span>
@@ -493,6 +497,7 @@
     const logEl = document.getElementById('log');
     const outEl = document.getElementById('out');
     const storeNameInput = document.getElementById('storeName');
+    const separationStripInput = document.getElementById('separationStripCm');
     const progressBar = document.getElementById('progressBar');
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
@@ -653,6 +658,11 @@
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '')
         .toLowerCase();
+    }
+    function getSeparationStripCm() {
+      const raw = Number(separationStripInput?.value);
+      if (!Number.isFinite(raw)) return 4;
+      return Math.min(15, Math.max(0.5, raw));
     }
 
     function updateProgress(current, total, startTime, progressFillEl, progressTextEl, timerTextEl) {
@@ -946,6 +956,7 @@
           throw new Error('Nenhuma página válida foi gerada.');
         }
 
+        const separationStripCm = getSeparationStripCm();
         const sepDoc = await PDFLib.PDFDocument.create();
         const sepSourcePages = outDoc.getPages();
         const A4_W = cm(21);
@@ -953,7 +964,7 @@
         const SEP_MARGIN_X = cm(1);
         const SEP_MARGIN_Y = cm(1);
         const SEP_GAP = cm(0.25);
-        const SEP_STRIP_H = cm(7);
+        const SEP_STRIP_H = cm(separationStripCm);
         const sepUsableW = A4_W - SEP_MARGIN_X * 2;
         let sepPage = null;
         let sepCursorY = A4_H - SEP_MARGIN_Y;
@@ -987,8 +998,9 @@
             height: drawH,
           });
           sepCursorY -= SEP_GAP;
-          log(`Lista separação ▶ Etiqueta ${idx + 1} ▶ faixa inferior de 4 cm adicionada.`);
+          log(`Lista separação ▶ Etiqueta ${idx + 1} ▶ faixa inferior de ${separationStripCm.toFixed(1)} cm adicionada.`);
         }
+
 
         setStatus('Salvando PDF…');
         const outBytes = await outDoc.save();
@@ -1011,8 +1023,7 @@
           <div class="labels-ok">✅ PDF final gerado com sucesso.</div>
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
             <a class="labels-link" href="${outUrl}" download="${finalFileName}">Baixar PDF final</a>
-            <a class="labels-link" href="${sepUrl}" download="${sepFileName}">Baixar lista de separação (faixas de 4 cm)</a>
-          </div>
+            <a class="labels-link" href="${sepUrl}" download="${sepFileName}">Baixar lista de separação (faixas de ${separationStripCm.toFixed(1)} cm)</a>          </div>
         `;
 
         if (dbgDoc) {
