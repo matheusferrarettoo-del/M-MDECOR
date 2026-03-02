@@ -616,12 +616,12 @@
       <div class="orders-panel">
         <h3>Lista de Pedidos</h3>
         <div class="orders-chip-row" aria-label="Filtros rápidos">
-          <button class="orders-chip active" type="button">Todos</button>
-          <button class="orders-chip" type="button">Shopee</button>
-          <button class="orders-chip" type="button">Produção</button>
-          <button class="orders-chip" type="button">Pendentes</button>
-          <button class="orders-chip" type="button">Hoje</button>
-          <button class="orders-chip" type="button">Esta Semana</button>
+          <button class="orders-chip" type="button" data-order-chip="todos">Todos</button>
+          <button class="orders-chip" type="button" data-order-chip="shopee">Shopee</button>
+          <button class="orders-chip" type="button" data-order-chip="producao">Produção</button>
+          <button class="orders-chip" type="button" data-order-chip="pendentes">Pendentes</button>
+          <button class="orders-chip active" type="button" data-order-chip="hoje">Hoje</button>
+          <button class="orders-chip" type="button" data-order-chip="semana">Esta Semana</button>
         </div>
         <div class="orders-toolbar">
           <div class="filter-field">
@@ -632,7 +632,7 @@
             <label for="ordersDataFim">Data final</label>
             <input id="ordersDataFim" type="date" />
           </div>
-          <button class="btn primary" type="button">🔎 Filtrar</button>
+          <button class="btn primary" id="btnAplicarFiltroData" type="button">🔎 Filtrar</button>
           <button class="btn accent" id="btnLimparFiltroData" type="button">Limpar Filtro</button>
         </div>
         <div style="overflow:auto; margin-top:8px;">
@@ -644,11 +644,11 @@
 
         <div class="orders-form-tabs">
           <button class="btn primary" id="btnNovoPedido">+ Adicionar Pedido</button>
-          <button class="btn" type="button">👤 Cliente</button>
-          <button class="btn" type="button">📦 Itens</button>
-          <button class="btn" type="button">📅 Prazos</button>
-          <button class="btn" type="button">💳 Financeiro</button>
-          <button class="btn" type="button">🏭 Produção</button>
+          <button class="btn" type="button" data-order-form-tab="cliente">👤 Cliente</button>
+          <button class="btn" type="button" data-order-form-tab="itens">📦 Itens</button>
+          <button class="btn" type="button" data-order-form-tab="prazos">📅 Prazos</button>
+          <button class="btn" type="button" data-order-form-tab="financeiro">💳 Financeiro</button>
+          <button class="btn" type="button" data-order-form-tab="producao">🏭 Produção</button>
         </div>
       </div>
     </div>
@@ -2448,14 +2448,37 @@
   const orderDateFilter = {
     inicio: document.getElementById("ordersDataInicio"),
     fim: document.getElementById("ordersDataFim"),
+    aplicar: document.getElementById("btnAplicarFiltroData"),
     limpar: document.getElementById("btnLimparFiltroData"),
   };
+  const orderQuickFilters = Array.from(document.querySelectorAll("[data-order-chip]"));
   const orderForm = {
     clienteNome: document.getElementById("order_clienteNome"), telefone: document.getElementById("order_telefone"), canal: document.getElementById("order_canal"), obs: document.getElementById("order_obs"),
     dataPedido: document.getElementById("order_dataPedido"), dataEntrega: document.getElementById("order_dataEntrega"), status: document.getElementById("order_status")
   };
   let editingOrderId = null;
   let orderItemsDraft = [];
+  let activeOrderQuickFilter = "hoje";
+
+  function normalizeDateOnly(date = new Date()) {
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  }
+
+  function startOfWeekDate(date = new Date()) {
+    const clone = new Date(date);
+    const day = clone.getDay();
+    const offset = day === 0 ? -6 : 1 - day;
+    clone.setDate(clone.getDate() + offset);
+    clone.setHours(0, 0, 0, 0);
+    return clone;
+  }
+
+  function syncQuickFilterUI() {
+    orderQuickFilters.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.orderChip === activeOrderQuickFilter);
+    });
+  }
 
   function ensureOrdersSeeds() {
     state.orders = state.orders || [];
@@ -2618,6 +2641,15 @@
         if (!dataPedido) return !inicio && !fim;
         if (inicio && dataPedido < inicio) return false;
         if (fim && dataPedido > fim) return false;
+        const today = normalizeDateOnly();
+        if (activeOrderQuickFilter === "hoje" && dataPedido !== today) return false;
+        if (activeOrderQuickFilter === "shopee" && String(o.canal || "").toLowerCase() !== "shopee") return false;
+        if (activeOrderQuickFilter === "pendentes" && ["CONCLUIDO", "CANCELADO"].includes(o.status)) return false;
+        if (activeOrderQuickFilter === "producao" && !["A ENVIAR", "ENVIADO"].includes(o.status)) return false;
+        if (activeOrderQuickFilter === "semana") {
+          const startWeek = normalizeDateOnly(startOfWeekDate());
+          if (!dataPedido || dataPedido < startWeek || dataPedido > today) return false;
+        }
         return true;
       })
       .slice()
@@ -2696,10 +2728,40 @@
   document.getElementById('btnAddOrderItem').addEventListener('click', ()=>{ orderItemsDraft.push({ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), productId: '', quantidade: 1, precoUnit: 0 }); recalcOrderDraft(); });
   [orderForm.dataEntrega, orderForm.status].forEach((f)=>f.addEventListener('input', renderOrderSummary));
   [orderDateFilter.inicio, orderDateFilter.fim].forEach((f)=>f?.addEventListener('input', renderOrders));
+  orderDateFilter.aplicar?.addEventListener('click', ()=>{
+    activeOrderQuickFilter = "todos";
+    syncQuickFilterUI();
+    renderOrders();
+  });
   orderDateFilter.limpar?.addEventListener('click', ()=>{
     if (orderDateFilter.inicio) orderDateFilter.inicio.value = "";
     if (orderDateFilter.fim) orderDateFilter.fim.value = "";
+    activeOrderQuickFilter = "hoje";
+    syncQuickFilterUI();
     renderOrders();
+  });
+  orderQuickFilters.forEach((btn) => btn.addEventListener("click", () => {
+    activeOrderQuickFilter = btn.dataset.orderChip || "todos";
+    syncQuickFilterUI();
+    renderOrders();
+  }));
+  document.querySelectorAll("[data-order-form-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      openOrderFormCard();
+      const targetMap = {
+        cliente: orderForm.clienteNome,
+        itens: document.getElementById("orderItemsGrid"),
+        prazos: orderForm.dataPedido,
+        financeiro: document.getElementById("orderResumoReceita"),
+        producao: document.getElementById("orderResumoProducao"),
+      };
+      const target = targetMap[btn.dataset.orderFormTab];
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) {
+        target.focus();
+      }
+    });
   });
 
   document.getElementById('btnSalvarPedido').addEventListener('click', async ()=>{
@@ -3214,6 +3276,10 @@
   ensureDashboardOrdersSeeds();
   ensureFinanceSeeds();
   document.getElementById('finDate').value = new Date().toISOString().slice(0,10);
+  const hojeFiltroPedidos = normalizeDateOnly();
+  if (orderDateFilter.inicio) orderDateFilter.inicio.value = hojeFiltroPedidos;
+  if (orderDateFilter.fim) orderDateFilter.fim.value = hojeFiltroPedidos;
+  syncQuickFilterUI();
   resetOrderForm();
   renderOrders();
   renderProducts();
