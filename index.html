@@ -2430,7 +2430,8 @@
   });
 
   document.getElementById("btnSalvarProdutoModulo").addEventListener("click", async () => {
-    const calc = lastProductCalc || computeProdutoFromForm();
+    const calc = computeProdutoFromForm();
+    lastProductCalc = calc;
     if (!calc.nome || !calc.sku || !calc.categoria || !calc.woodId) return alert("Campos obrigatórios: nome, SKU, categoria e madeira.");
     if (state.products.some((p) => p.sku === calc.sku && p.id !== editingProductId)) return alert("SKU já cadastrado. Use um SKU único.");
 
