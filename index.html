@@ -194,6 +194,9 @@
     .prod-status{display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid transparent;}
     .prod-status.active{background:#e8f1ff; color:#1d4ed8; border-color:#bfdbfe;}
     .prod-status.archived{background:#f1f5f9; color:#475569; border-color:#e2e8f0;}
+    .prod-links{display:flex; gap:6px; flex-wrap:wrap;}
+    .prod-link-btn{display:inline-flex; align-items:center; justify-content:center; padding:4px 10px; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; font-size:12px; font-weight:700; text-decoration:none;}
+    .prod-link-btn:hover{background:#dbeafe;}
     .prod-actions{display:flex; justify-content:flex-end; align-items:center; gap:8px;}
     .action-menu{position:relative;}
     .menu-trigger{width:34px; height:34px; border-radius:10px; border:1px solid #d7deea; background:#fff; color:#334155; font-weight:800; line-height:1;}
@@ -545,6 +548,7 @@
                 <th class="right">Preço sugerido</th>
                 <th class="right">Lucro</th>
                 <th class="right">Margem %</th>
+                <th>Links</th>
                 <th>Status</th>
                 <th class="right">Ações</th>
               </tr>
@@ -582,6 +586,8 @@
         <div class="row"><label>Custo embalagem (R$)</label><input id="prod_embalagem" type="number" step="0.01" /></div>
         <div class="row"><label>Canal para snapshot</label><select id="prod_canal"><option>Shopee</option><option>Mercado Livre</option><option>TikTok</option></select></div>
         <div class="row"><label>Margem desejada (%)</label><input id="prod_margem" type="number" step="0.01" /></div>
+        <div class="row"><label>Link da pasta de imagens</label><input id="prod_link_imagens" type="url" placeholder="https://..." /></div>
+        <div class="row"><label>Link do desenho do produto</label><input id="prod_link_desenho" type="url" placeholder="https://..." /></div>
         <div class="row" style="grid-template-columns:1fr;"><label>Observações técnicas</label><textarea id="prod_obs" rows="2"></textarea></div>
         <div class="btnbar">
           <button class="btn accent" id="btnRecalcularProduto">Recalcular</button>
@@ -1704,6 +1710,8 @@
     embalagem: document.getElementById("prod_embalagem"),
     canal: document.getElementById("prod_canal"),
     margem: document.getElementById("prod_margem"),
+    linkImagens: document.getElementById("prod_link_imagens"),
+    linkDesenho: document.getElementById("prod_link_desenho"),
     obs: document.getElementById("prod_obs"),
   };
   const prodWoodItemsContainer = document.getElementById("prodWoodItems");
@@ -1765,6 +1773,13 @@
   function fmtDT(iso) {
     try { return new Date(iso).toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short"}); }
     catch(e){ return iso || "—"; }
+  }
+
+  function normalizeExternalLink(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return null;
+    if (/^https?:\/\//i.test(raw)) return raw;
+    return `https://${raw}`;
   }
 
   function fillProductWoodSelect() {
@@ -1867,6 +1882,8 @@
       lucro,
       margemLiquida,
       ativo: produtoForm.ativo.value === "true",
+      linkPastaImagens: normalizeExternalLink(produtoForm.linkImagens.value),
+      linkDesenho: normalizeExternalLink(produtoForm.linkDesenho.value),
       updatedAt: new Date().toISOString(),
     };
   }
@@ -1905,12 +1922,15 @@
     updateProductStats(state.products || []);
 
     if (!filteredProducts.length) {
-      prodBody.innerHTML = '<tr><td colspan="8" class="muted">Nenhum produto encontrado para os filtros atuais.</td></tr>';
+      prodBody.innerHTML = '<tr><td colspan="9" class="muted">Nenhum produto encontrado para os filtros atuais.</td></tr>';
       return;
     }
 
     filteredProducts.forEach((p) => {
       const tr = document.createElement("tr");
+      const links = [];
+      if (p.linkPastaImagens) links.push(`<a class="prod-link-btn" href="${p.linkPastaImagens}" target="_blank" rel="noopener noreferrer">Imagens</a>`);
+      if (p.linkDesenho) links.push(`<a class="prod-link-btn" href="${p.linkDesenho}" target="_blank" rel="noopener noreferrer">Desenho</a>`);
       tr.innerHTML = `
         <td><strong>${p.nome ?? "—"}</strong></td>
         <td>${p.sku ?? "—"}</td>
@@ -1918,6 +1938,7 @@
         <td class="right">${fmtBRL(p.precoSugerido ?? 0)}</td>
         <td class="right prod-profit">${fmtBRL(p.lucro ?? 0)}</td>
         <td class="right"><span class="prod-margin">${fmtPct(p.margemLiquida ?? 0)}</span></td>
+        <td><div class="prod-links">${links.join("") || "—"}</div></td>
         <td><span class="prod-status ${p.ativo ? "active" : "archived"}">${p.ativo ? "Ativo" : "Arquivado"}</span></td>
         <td class="right">
           <div class="prod-actions">
@@ -1994,6 +2015,8 @@
     produtoForm.montagem.value = p.tempos?.montagem ?? "";
     produtoForm.maoSecundariaFixa.value = p.maoSecundariaFixa ?? "";
     produtoForm.embalagem.value = p.embalagem ?? "";
+    produtoForm.linkImagens.value = p.linkPastaImagens || "";
+    produtoForm.linkDesenho.value = p.linkDesenho || "";
     produtoForm.obs.value = p.observacoesTecnicas ?? "";
     produtoForm.canal.value = p.canal || "Shopee";
     produtoForm.margem.value = p.margemDesejada ?? "";
