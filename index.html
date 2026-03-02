@@ -1130,6 +1130,7 @@
     if (t === "estoque") carregarEstoqueDoBanco();
     if (t === "dashboard") renderDashboard();
     if (t === "pedidos") {
+      carregarProdutosParaPedidosDoBanco().catch((e) => console.warn("Falha ao carregar produtos para pedidos no Firebase:", e));
       renderOrders();
       carregarPedidosDoBanco().catch((e) => console.warn("Falha ao carregar pedidos do Firebase:", e));
     }
@@ -1880,6 +1881,14 @@
     renderOrders();
     renderHistorico();
     renderDashboard();
+  }
+
+  async function carregarProdutosParaPedidosDoBanco() {
+    if (!USE_FIREBASE_PRODUCTS || !db) return;
+    const snap = await getDocs(query(collection(db, "products"), orderBy("updatedAt", "desc")));
+    state.products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    recalcOrderDraft();
+    renderOrders();
   }
 
   function loadProductInForm(id) {
