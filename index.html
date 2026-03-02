@@ -2542,6 +2542,13 @@
     return local.toISOString().slice(0, 10);
   }
 
+  function addDaysToDate(dateStr, days = 0) {
+    const baseDate = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
+    if (Number.isNaN(baseDate.getTime())) return normalizeDateOnly();
+    baseDate.setDate(baseDate.getDate() + days);
+    return normalizeDateOnly(baseDate);
+  }
+
   function startOfWeekDate(date = new Date()) {
     const clone = new Date(date);
     const day = clone.getDay();
@@ -2715,7 +2722,7 @@
     orderForm.status.value = "A ENVIAR";
     const hoje = new Date().toISOString().slice(0,10);
     orderForm.dataPedido.value = hoje;
-    orderForm.dataEntrega.value = hoje;
+    orderForm.dataEntrega.value = addDaysToDate(hoje, 30);
     orderItemsDraft = [{ id: crypto?.randomUUID?.() || String(Date.now()), productId: "", manualProduct: false, quantidade: 1, precoUnit: 0 }];
     recalcOrderDraft();
     document.getElementById("orderResumoProducao").textContent = "Sem OP gerada.";
@@ -2734,6 +2741,34 @@
       id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), orderId: order.id, orderNumber: order.orderNumber,
       minutosCorte: order.minutosCorte, minutosMontagem: order.minutosMontagem, status: "Aberta", createdAt: new Date().toISOString()
     });
+  }
+
+
+  function upsertFinanceOrderEntry(order, prevOrder = null) {
+    ensureFinanceSeeds();
+    const entries = state.finance.entries || [];
+    const previousEntryId = prevOrder?.financeEntryId || null;
+    const index = entries.findIndex((entry) => entry.id === previousEntryId || entry.orderId === order.id);
+    const now = new Date().toISOString();
+    const entryBase = {
+      type: "entrada",
+      status: "pendente",
+      orderId: order.id,
+      description: `Pedido ${order.orderNumber || ""} - ${order.clienteNome || "Cliente"}`.trim(),
+      value: n(order.valorTotal) ?? 0,
+      date: order.dataPedido || normalizeDateOnly(),
+      updatedAt: now,
+    };
+
+    if (index >= 0) {
+      const current = entries[index];
+      entries[index] = { ...current, ...entryBase, createdAt: current.createdAt || now };
+      return entries[index].id;
+    }
+
+    const id = crypto?.randomUUID?.() || String(Date.now() + Math.random());
+    entries.unshift({ id, ...entryBase, createdAt: now });
+    return id;
   }
 
   function renderOrders(){
@@ -2862,6 +2897,7 @@
     if (!target) return;
     if (!confirm(`Deseja excluir o pedido ${target.orderNumber||''}?`)) return;
     const productionToDelete = (state.productionOrders || []).filter((x) => x.orderId === id);
+    state.finance.entries = (state.finance?.entries || []).filter((entry) => entry.orderId !== id);
     state.orders = (state.orders||[]).filter((x)=>x.id!==id);
     state.productionOrders = (state.productionOrders||[]).filter((x)=>x.orderId!==id);
     if (editingOrderId === id) resetOrderForm();
@@ -2871,6 +2907,7 @@
       Promise.all(productionToDelete.map((op) => deleteDoc(doc(db, "production_orders", op.id))))
         .catch((e) => console.warn("Falha ao excluir OP vinculada no Firebase:", e));
     }
+    salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
     renderOrders();
     renderDashboard();
   }
@@ -2880,6 +2917,7 @@
     editingOrderId = id;
     orderForm.clienteNome.value=o.clienteNome||''; orderForm.telefone.value=o.telefone||''; orderForm.canal.value=o.canal||'Shopee';
     orderForm.obs.value=o.observacoes||''; orderForm.dataPedido.value=o.dataPedido||''; orderForm.dataEntrega.value=o.dataEntrega||'';
+    if (orderForm.dataPedido.value) orderForm.dataEntrega.value = addDaysToDate(orderForm.dataPedido.value, 30);
     orderForm.status.innerHTML = ORDER_STATUS.map((s)=>`<option value="${s.value}">${s.icon} ${s.value}</option>`).join("");
     orderForm.status.value=o.status||'A ENVIAR';
     orderItemsDraft=(o.itens||[]).map((it)=>({ ...it, manualProduct: !it.productId && !!String(it.nomeProduto || '').trim(), id: crypto?.randomUUID?.() || String(Date.now()+Math.random()) }));
@@ -2894,6 +2932,10 @@
     openOrderFormCard();
   });
   document.getElementById('btnAddOrderItem').addEventListener('click', ()=>{ orderItemsDraft.push({ id: crypto?.randomUUID?.() || String(Date.now()+Math.random()), productId: '', manualProduct: false, quantidade: 1, precoUnit: 0 }); recalcOrderDraft(); });
+  orderForm.dataPedido.addEventListener('input', ()=>{
+    orderForm.dataEntrega.value = addDaysToDate(orderForm.dataPedido.value, 30);
+    renderOrderSummary();
+  });
   [orderForm.dataEntrega, orderForm.status].forEach((f)=>f.addEventListener('input', renderOrderSummary));
   [orderDateFilter.inicio, orderDateFilter.fim].forEach((f)=>f?.addEventListener('input', renderOrders));
   orderDateFilter.aplicar?.addEventListener('click', ()=>{
@@ -2938,14 +2980,17 @@
     const totals = orderTotals(orderItemsDraft);
     const now = new Date().toISOString();
     const prev = editingOrderId ? (state.orders||[]).find((x)=>x.id===editingOrderId) : null;
+    const dataPedido = orderForm.dataPedido.value || normalizeDateOnly();
+    const dataEntrega = addDaysToDate(dataPedido, 30);
     const order = {
       id: editingOrderId || (crypto?.randomUUID?.() || String(Date.now()+Math.random())),
       orderNumber: prev?.orderNumber || newOrderNumber(),
       clienteNome: orderForm.clienteNome.value.trim(), telefone: orderForm.telefone.value.trim(), canal: orderForm.canal.value, observacoes: orderForm.obs.value.trim(),
-      status: orderForm.status.value, dataPedido: orderForm.dataPedido.value, dataEntrega: orderForm.dataEntrega.value,
+      status: orderForm.status.value, dataPedido, dataEntrega,
       itens: orderItemsDraft.map((it)=>({ productId: it.productId||null, nomeProduto: it.nomeProduto||'', sku: it.sku || '', quantidade: n(it.quantidade)??0, precoUnit: n(it.precoUnit)??0, custoUnit: n(it.custoUnit)??0, lucroUnit: n(it.lucroUnit)??0 })),
       valorTotal: totals.valorTotal, custoTotal: totals.custoTotal, lucroTotal: totals.lucroTotal, minutosCorte: totals.minutosCorte, minutosMontagem: totals.minutosMontagem,
       inventoryDebitedAt: prev?.inventoryDebitedAt || null,
+      financeEntryId: prev?.financeEntryId || null,
       createdAt: prev?.createdAt || now, updatedAt: now
     };
     try {
@@ -2953,6 +2998,7 @@
       createProductionOrderIfNeeded(order, prev?.status);
       if (editingOrderId) { const i=state.orders.findIndex((x)=>x.id===editingOrderId); if(i>=0) state.orders[i]=order; }
       else state.orders.unshift(order);
+      order.financeEntryId = upsertFinanceOrderEntry(order, prev);
     } catch (err) {
       alert(err?.message || "Não foi possível debitar o estoque automaticamente.");
       return;
