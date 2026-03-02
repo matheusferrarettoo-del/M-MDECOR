@@ -147,9 +147,7 @@ function carregarProdutosSistema() {
 
     try {
       const snap = await db
-        .collection('uid')
-        .doc(user.uid)
-        .collection('produtos')
+        .collection('products')
         .get();
 
       sistema.produtos = [];
@@ -206,9 +204,7 @@ async function checkProducts(isPromo = false) {
 
   // pega todos os SKUs do Firestore
  const snap = await db
-    .collection('uid')
-    .doc(user.uid)
-    .collection('produtos')
+    .collection('products')
     .get();
   const systemSkus = new Set();
   snap.docs.forEach(d => {
