@@ -566,7 +566,7 @@
       </div>
       <div style="overflow:auto; margin-top:12px;">
         <table class="table" id="ordersTable">
-          <thead><tr><th>Nº Pedido</th><th>Canal</th><th>Data pedido</th><th>Prazo</th><th class="right">Valor</th><th class="right">Lucro</th><th>Status</th><th>PRODUTO (SKU)</th><th class="right">Ações</th></tr></thead>
+          <thead><tr><th>Nº Pedido</th><th>Canal</th><th>Data pedido</th><th class="right">CUSTO PRODUTO</th><th>Status</th><th>SKU</th><th>Nome</th><th class="right">Ações</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -2023,7 +2023,7 @@
   }
 
   async function debitInventoryForOrderProduction(order, prevStatus) {
-    const entrouEmProducao = order.status === "Em Produção" && prevStatus !== "Em Produção";
+    const entrouEmProducao = order.status === "ENVIADO" && prevStatus !== "ENVIADO";
     if (!entrouEmProducao || order.inventoryDebitedAt) return null;
     const demands = buildOrderInventoryDemands(order);
     if (!demands.length) return null;
@@ -2354,13 +2354,10 @@
 
   // ====== PEDIDOS ======
   const ORDER_STATUS = [
-    { value: "Orçamento", color: "#f5e9bf", text: "#886f23", icon: "🟡" },
-    { value: "Aprovado", color: "#ddebfb", text: "#3d6792", icon: "🔵" },
-    { value: "Em Produção", color: "#f8dfc8", text: "#935d29", icon: "🟠" },
-    { value: "Acabamento", color: "#eadff8", text: "#6a4a95", icon: "🟣" },
-    { value: "Finalizado", color: "#ddeedb", text: "#4c7b49", icon: "🟢" },
-    { value: "Entregue", color: "#ececec", text: "#575757", icon: "⚫" },
-    { value: "Cancelado", color: "#f6dada", text: "#974747", icon: "🔴" },
+    { value: "A ENVIAR", color: "#fef3c7", text: "#92400e", icon: "🟡" },
+    { value: "ENVIADO", color: "#dbeafe", text: "#1d4ed8", icon: "🔵" },
+    { value: "CONCLUIDO", color: "#dcfce7", text: "#166534", icon: "🟢" },
+    { value: "CANCELADO", color: "#fee2e2", text: "#991b1b", icon: "🔴" },
   ];
   const orderBody = document.querySelector("#ordersTable tbody");
   const orderFormCard = document.getElementById("orderFormCard");
@@ -2384,7 +2381,7 @@
         id: o.id || (crypto?.randomUUID?.() || String(Date.now() + Math.random())),
         orderNumber: `PED-${String(idx+1).padStart(4,'0')}`,
         clienteNome: o.cliente || "Cliente", telefone: "", canal: "Shopee", observacoes: "",
-        status: o.status || "Orçamento", dataPedido: (o.createdAt || new Date().toISOString()).slice(0,10), dataEntrega: (o.previstoPara || new Date().toISOString()).slice(0,10),
+        status: o.status || "A ENVIAR", dataPedido: (o.createdAt || new Date().toISOString()).slice(0,10), dataEntrega: (o.previstoPara || new Date().toISOString()).slice(0,10),
         itens: [], valorTotal: n(o.valorFinal) ?? 0, custoTotal: Math.max(0, (n(o.valorTotal) ?? 0) - (n(o.lucroTotal) ?? 0)), lucroTotal: n(o.lucroReal) ?? 0,
         minutosCorte: n(o.minutosCorte) ?? 0, minutosMontagem: n(o.minutosMontagem) ?? 0, createdAt: o.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
       }));
@@ -2397,12 +2394,12 @@
 
   function recalcOrderDraft() {
     orderItemsDraft = orderItemsDraft.map((it) => {
-      const p = (state.products || []).find((x) => x.id === it.productId);
+      const p = (state.products || []).find((x) => x.id === it.productId || x.nome === it.nomeProduto || x.sku === it.sku);
       const qtd = Math.max(1, n(it.quantidade) ?? 1);
       const precoUnit = n(it.precoUnit) ?? (n(p?.precoSugerido) ?? 0);
       const custoUnit = n(p?.custoTotal) ?? 0;
       const lucroUnit = precoUnit - custoUnit;
-      return { ...it, nomeProduto: p?.nome || it.nomeProduto || "", quantidade: qtd, precoUnit, custoUnit, lucroUnit, subtotal: precoUnit * qtd, tempos: { corte: n(p?.tempos?.corte) ?? 0, montagem: n(p?.tempos?.montagem) ?? 0 } };
+      return { ...it, nomeProduto: p?.nome || it.nomeProduto || "", sku: p?.sku || it.sku || "", quantidade: qtd, precoUnit, custoUnit, lucroUnit, subtotal: precoUnit * qtd, tempos: { corte: n(p?.tempos?.corte) ?? 0, montagem: n(p?.tempos?.montagem) ?? 0 } };
     });
     renderOrderItems();
     renderOrderSummary();
@@ -2444,7 +2441,7 @@
     document.getElementById("orderResumoMargem").textContent = fmtNum(t.margem,1)+"%";
     const delay = document.getElementById("orderDelayAlert");
     const dtEntrega = orderForm.dataEntrega.value ? new Date(orderForm.dataEntrega.value+"T23:59:59") : null;
-    const atrasado = dtEntrega && dtEntrega < new Date() && !["Finalizado","Entregue","Cancelado"].includes(orderForm.status.value);
+    const atrasado = dtEntrega && dtEntrega < new Date() && !["CONCLUIDO","CANCELADO"].includes(orderForm.status.value);
     delay.textContent = atrasado ? "⚠ Pedido atrasado: prazo vencido e pedido ainda não finalizado." : "";
     delay.classList.toggle("hide", !atrasado);
   }
@@ -2454,7 +2451,7 @@
     Object.values(orderForm).forEach((f)=>f.value="");
     orderForm.canal.value = "Shopee";
     orderForm.status.innerHTML = ORDER_STATUS.map((s)=>`<option value="${s.value}">${s.icon} ${s.value}</option>`).join("");
-    orderForm.status.value = "Orçamento";
+    orderForm.status.value = "A ENVIAR";
     const hoje = new Date().toISOString().slice(0,10);
     orderForm.dataPedido.value = hoje;
     orderForm.dataEntrega.value = hoje;
@@ -2469,7 +2466,7 @@
   }
 
   function createProductionOrderIfNeeded(order, prevStatus){
-    if (order.status !== "Aprovado" || prevStatus === "Aprovado") return;
+    if (order.status !== "ENVIADO" || prevStatus === "ENVIADO") return;
     const exists = (state.productionOrders||[]).some((op)=>op.orderId===order.id);
     if (exists) return;
     state.productionOrders.push({
@@ -2493,19 +2490,21 @@
       })
       .slice()
       .sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
-    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="9" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
+    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="8" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
     rows.forEach((o)=>{
-      const produtosSku = (o.itens || [])
+      const produtosComRef = (o.itens || [])
         .map((it) => {
           const produto = (state.products || []).find((p) => p.id === it.productId || p.nome === it.nomeProduto);
-          const nome = produto?.nome || it.nomeProduto || "Produto";
-          const sku = produto?.sku ? ` (${produto.sku})` : "";
-          return `${nome}${sku}`;
+          return {
+            nome: produto?.nome || it.nomeProduto || "Produto",
+            sku: produto?.sku || it.sku || "—",
+          };
         })
-        .filter(Boolean);
-      const produtoSkuLabel = produtosSku.length ? [...new Set(produtosSku)].join(", ") : "—";
+        .filter((it) => it.nome || it.sku);
+      const skuLabel = produtosComRef.length ? [...new Set(produtosComRef.map((it) => it.sku).filter(Boolean))].join(", ") : "—";
+      const nomeLabel = produtosComRef.length ? [...new Set(produtosComRef.map((it) => it.nome).filter(Boolean))].join(", ") : "—";
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${o.orderNumber||'—'}</td><td>${o.canal||'—'}</td><td>${o.dataPedido||'—'}</td><td>${o.dataEntrega||'—'}</td><td class="right">${fmtBRL(o.valorTotal||0)}</td><td class="right">${fmtBRL(o.lucroTotal||0)}</td><td>${statusPill(o.status||'Orçamento')}</td><td class="order-product-cell">${produtoSkuLabel}</td><td class="right"><button class="btn" data-oedit="${o.id}">Editar</button> <button class="btn danger" data-odel="${o.id}">Excluir</button></td>`;
+      tr.innerHTML=`<td>${o.orderNumber||'—'}</td><td>${o.canal||'—'}</td><td>${o.dataPedido||'—'}</td><td class="right">${fmtBRL(o.custoTotal||0)}</td><td>${statusPill(o.status||'A ENVIAR')}</td><td>${skuLabel}</td><td class="order-product-cell">${nomeLabel}</td><td class="right"><button class="btn" data-oedit="${o.id}">Editar</button> <button class="btn danger" data-odel="${o.id}">Excluir</button></td>`;
       orderBody.appendChild(tr);
     });
     orderBody.querySelectorAll('[data-oedit]').forEach((b)=>b.addEventListener('click',()=>loadOrderForm(b.dataset.oedit)));
@@ -2536,7 +2535,7 @@
     orderForm.clienteNome.value=o.clienteNome||''; orderForm.telefone.value=o.telefone||''; orderForm.canal.value=o.canal||'Shopee';
     orderForm.obs.value=o.observacoes||''; orderForm.dataPedido.value=o.dataPedido||''; orderForm.dataEntrega.value=o.dataEntrega||'';
     orderForm.status.innerHTML = ORDER_STATUS.map((s)=>`<option value="${s.value}">${s.icon} ${s.value}</option>`).join("");
-    orderForm.status.value=o.status||'Orçamento';
+    orderForm.status.value=o.status||'A ENVIAR';
     orderItemsDraft=(o.itens||[]).map((it)=>({ ...it, id: crypto?.randomUUID?.() || String(Date.now()+Math.random()) }));
     recalcOrderDraft();
     openOrderFormCard();
@@ -2567,7 +2566,7 @@
       orderNumber: prev?.orderNumber || newOrderNumber(),
       clienteNome: orderForm.clienteNome.value.trim(), telefone: orderForm.telefone.value.trim(), canal: orderForm.canal.value, observacoes: orderForm.obs.value.trim(),
       status: orderForm.status.value, dataPedido: orderForm.dataPedido.value, dataEntrega: orderForm.dataEntrega.value,
-      itens: orderItemsDraft.map((it)=>({ productId: it.productId||null, nomeProduto: it.nomeProduto||'', quantidade: n(it.quantidade)??0, precoUnit: n(it.precoUnit)??0, custoUnit: n(it.custoUnit)??0, lucroUnit: n(it.lucroUnit)??0 })),
+      itens: orderItemsDraft.map((it)=>({ productId: it.productId||null, nomeProduto: it.nomeProduto||'', sku: it.sku || '', quantidade: n(it.quantidade)??0, precoUnit: n(it.precoUnit)??0, custoUnit: n(it.custoUnit)??0, lucroUnit: n(it.lucroUnit)??0 })),
       valorTotal: totals.valorTotal, custoTotal: totals.custoTotal, lucroTotal: totals.lucroTotal, minutosCorte: totals.minutosCorte, minutosMontagem: totals.minutosMontagem,
       inventoryDebitedAt: prev?.inventoryDebitedAt || null,
       createdAt: prev?.createdAt || now, updatedAt: now
@@ -2718,7 +2717,7 @@
 
     const lucroMes = months.map((m) => {
       const value = (state.orders || []).reduce((acc, o) => {
-        if ((o.status || '') !== 'Entregue') return acc;
+        if ((o.status || '') !== 'CONCLUIDO') return acc;
         const date = (o.dataPedido || '').slice(0, 7);
         if (date !== m.key) return acc;
         return acc + (n(o.lucroTotal) ?? 0);
@@ -2808,16 +2807,16 @@
       updatedAt: new Date().toISOString(),
     });
     state.orders = [
-      mk(-2, "Aprovado", "Pedido Festa Safari", 890, 320, 130, 80, 0),
-      mk(-1, "Em Produção", "Topo de Bolo Premium", 420, 170, 95, 50, 1),
-      mk(0, "Orçamento", "Lembrancinhas Dino", 0, 0, 60, 40, 2),
-      mk(0, "Finalizado", "Painel Nome em MDF", 650, 250, 110, 70, 3),
-      mk(0, "Entregue", "Kit Mesversário", 540, 220, 85, 40, 4),
+      mk(-2, "ENVIADO", "Pedido Festa Safari", 890, 320, 130, 80, 0),
+      mk(-1, "A ENVIAR", "Topo de Bolo Premium", 420, 170, 95, 50, 1),
+      mk(0, "A ENVIAR", "Lembrancinhas Dino", 0, 0, 60, 40, 2),
+      mk(0, "CONCLUIDO", "Painel Nome em MDF", 650, 250, 110, 70, 3),
+      mk(0, "CANCELADO", "Kit Mesversário", 540, 220, 85, 40, 4),
     ];
   }
 
   function getDashboardData() {
-    const delivered = (state.orders || []).filter((o) => o.status === "Entregue");
+    const delivered = (state.orders || []).filter((o) => o.status === "CONCLUIDO");
     const month = new Date().getMonth();
     const year = new Date().getFullYear();
     const deliveredMonth = delivered.filter((o) => {
@@ -2827,8 +2826,8 @@
 
     const receitaMes = deliveredMonth.reduce((acc, o) => acc + (n(o.valorTotal) ?? 0), 0);
     const lucroMes = deliveredMonth.reduce((acc, o) => acc + (n(o.lucroTotal) ?? 0), 0);
-    const pedidosAbertos = (state.orders || []).filter((o) => o.status !== "Entregue").length;
-    const producaoPendente = (state.orders || []).filter((o) => !["Finalizado", "Entregue"].includes(o.status)).length;
+    const pedidosAbertos = (state.orders || []).filter((o) => o.status !== "CONCLUIDO").length;
+    const producaoPendente = (state.orders || []).filter((o) => !["CONCLUIDO", "CANCELADO"].includes(o.status)).length;
     const mdfDisponivel = (state.inventoryItems || []).filter((i) => i.tipo === "MDF").reduce((acc, i) => acc + (n(i.quantidadeAtual) ?? 0), 0);
 
     const hoje = new Date();
@@ -2868,7 +2867,7 @@
 
     cardsEl.innerHTML = cards.map((c) => `<div class="dashboard-card"><div class="label">${c.icon} ${c.label}</div><div class="value">${c.value}</div><div class="sub">${c.sub}</div></div>`).join("");
 
-    const statusCols = ["Orçamento", "Aprovado", "Em Produção", "Finalizado", "Entregue"];
+    const statusCols = ["A ENVIAR", "ENVIADO", "CONCLUIDO", "CANCELADO"];
     document.getElementById("dashKanban").innerHTML = statusCols.map((status) => {
       const items = (state.orders || []).filter((o) => o.status === status).slice(0, 4);
       return `<div class="kan-col"><h3>${status} (${items.length})</h3>${items.map((i) => `<div class="kan-item">${i.clienteNome || "Pedido"}<br><b>${fmtBRL(i.valorTotal || 0)}</b></div>`).join("") || '<div class="muted">Sem itens</div>'}</div>`;
