@@ -656,7 +656,7 @@
         </div>
         <div style="overflow:auto; margin-top:8px;">
           <table class="table" id="ordersTable">
-            <thead><tr><th>Nº</th><th>Pedido</th><th>Canal</th><th>Cliente</th><th>Prazo</th><th class="right">Custo</th><th>SKU</th><th>Status Pedido</th><th class="right">Ações</th></tr></thead>
+            <thead><tr><th>Numero Pedido</th><th>Data Venda</th><th>SKU</th><th class="right">Valor da Venda</th><th>Custo da Plataforma</th><th class="right">Valor Liquido</th><th class="right">Custo do Produto</th><th class="right">Lucro</th><th>Status</th><th class="right">Ações</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -692,6 +692,15 @@
 
         <h3 style="margin:12px 0 6px; font-size:14px;">D) Status do Pedido</h3>
         <div class="row"><label>Status</label><select id="order_status"></select></div>
+
+        <h3 style="margin:12px 0 6px; font-size:14px;">E) Dados da Venda</h3>
+        <div class="row"><label>Número do pedido</label><input id="order_numeroPedido" type="text" placeholder="Ex.: PED-0001" /></div>
+        <div class="row"><label>Data da venda</label><input id="order_dataVenda" type="date" /></div>
+        <div class="row"><label>SKU</label><input id="order_skuVenda" type="text" placeholder="Ex.: MDF-123" /></div>
+        <div class="row"><label>Valor da venda (R$)</label><input id="order_valorVenda" type="number" step="0.01" min="0" /></div>
+        <div class="row"><label>Custo da plataforma (descrição)</label><input id="order_custoPlataformaDescricao" type="text" placeholder="Ex.: Shopee 20% + R$ 4,00" /></div>
+        <div class="row"><label>Custo da plataforma (R$)</label><input id="order_custoPlataformaValor" type="number" step="0.01" min="0" /></div>
+        <div class="row"><label>Custo do produto (R$)</label><input id="order_custoProduto" type="number" step="0.01" min="0" /></div>
         <div class="btnbar"><button class="btn accent" id="btnSalvarPedido">Salvar pedido</button></div>
       </div>
 
@@ -2531,7 +2540,10 @@
   const orderQuickFilters = Array.from(document.querySelectorAll("[data-order-chip]"));
   const orderForm = {
     clienteNome: document.getElementById("order_clienteNome"), telefone: document.getElementById("order_telefone"), canal: document.getElementById("order_canal"), obs: document.getElementById("order_obs"),
-    dataPedido: document.getElementById("order_dataPedido"), dataEntrega: document.getElementById("order_dataEntrega"), status: document.getElementById("order_status")
+    dataPedido: document.getElementById("order_dataPedido"), dataEntrega: document.getElementById("order_dataEntrega"), status: document.getElementById("order_status"),
+    numeroPedido: document.getElementById("order_numeroPedido"), dataVenda: document.getElementById("order_dataVenda"), skuVenda: document.getElementById("order_skuVenda"),
+    valorVenda: document.getElementById("order_valorVenda"), custoPlataformaDescricao: document.getElementById("order_custoPlataformaDescricao"),
+    custoPlataformaValor: document.getElementById("order_custoPlataformaValor"), custoProduto: document.getElementById("order_custoProduto")
   };
   let editingOrderId = null;
   let orderItemsDraft = [];
@@ -2714,6 +2726,25 @@
     delay.classList.toggle("hide", !atrasado);
   }
 
+  function resolveSaleData(order = {}) {
+    const skuFromItems = [...new Set((order.itens || []).map((it) => it.sku).filter(Boolean))].join(", ");
+    const valorVenda = n(order.valorVenda) ?? n(order.valorTotal) ?? 0;
+    const custoPlataformaValor = n(order.custoPlataformaValor) ?? 0;
+    const valorLiquido = n(order.valorLiquido) ?? (valorVenda - custoPlataformaValor);
+    const custoProduto = n(order.custoProduto) ?? n(order.custoTotal) ?? 0;
+    const lucro = n(order.lucro) ?? (valorLiquido - custoProduto);
+    return {
+      numeroPedido: order.orderNumber || "—",
+      dataVenda: order.dataVenda || order.dataPedido || "—",
+      sku: order.skuVenda || skuFromItems || "—",
+      valorVenda,
+      custoPlataformaLabel: order.custoPlataformaDescricao || (custoPlataformaValor > 0 ? fmtBRL(custoPlataformaValor) : "—"),
+      valorLiquido,
+      custoProduto,
+      lucro,
+    };
+  }
+
   function resetOrderForm(){
     editingOrderId = null;
     Object.values(orderForm).forEach((f)=>f.value="");
@@ -2722,6 +2753,8 @@
     orderForm.status.value = "A ENVIAR";
     const hoje = new Date().toISOString().slice(0,10);
     orderForm.dataPedido.value = hoje;
+    orderForm.dataVenda.value = hoje;
+    orderForm.numeroPedido.value = newOrderNumber();
     orderForm.dataEntrega.value = addDaysToDate(hoje, 30);
     orderItemsDraft = [{ id: crypto?.randomUUID?.() || String(Date.now()), productId: "", manualProduct: false, quantidade: 1, precoUnit: 0 }];
     recalcOrderDraft();
@@ -2777,22 +2810,11 @@
     const rows = getFilteredOrders();
     updateOrderSummaryCards(rows);
 
-    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="9" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
+    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="10" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
     rows.forEach((o, idx)=>{
-      const produtosComRef = (o.itens || [])
-        .map((it) => {
-          const produto = findProductByOrderItem(it);
-          return {
-            nome: produto?.nome || it.nomeProduto || "Produto",
-            sku: produto?.sku || it.sku || "—",
-          };
-        })
-        .filter((it) => it.nome || it.sku);
-      const skuLabel = produtosComRef.length ? [...new Set(produtosComRef.map((it) => it.sku).filter(Boolean))].join(", ") : "—";
-      const nomeLabel = o.clienteNome || "—";
-      const prazoLabel = o.dataEntrega || o.dataPedido || "—";
+      const sale = resolveSaleData(o);
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td><span class="order-id">${idx+1}</span></td><td>${o.orderNumber||'—'}</td><td>${o.canal||'—'}</td><td>${nomeLabel}</td><td>${prazoLabel}</td><td class="right">${fmtBRL(o.custoTotal||0)}</td><td>${skuLabel}</td><td>${statusPill(o.status||'A ENVIAR')}</td><td class="right"><div class="orders-actions"><button class="icon-btn" title="Editar" data-oedit="${o.id}">✎</button><button class="icon-btn" title="Excluir" data-odel="${o.id}">🗑</button></div></td>`;
+      tr.innerHTML=`<td>${sale.numeroPedido}</td><td>${sale.dataVenda}</td><td>${sale.sku}</td><td class="right">${fmtBRL(sale.valorVenda)}</td><td>${sale.custoPlataformaLabel}</td><td class="right">${fmtBRL(sale.valorLiquido)}</td><td class="right">${fmtBRL(sale.custoProduto)}</td><td class="right">${fmtBRL(sale.lucro)}</td><td>${statusPill(o.status||'A ENVIAR')}</td><td class="right"><div class="orders-actions"><button class="icon-btn" title="Editar" data-oedit="${o.id}">✎</button><button class="icon-btn" title="Excluir" data-odel="${o.id}">🗑</button></div></td>`;
       orderBody.appendChild(tr);
     });
     orderBody.querySelectorAll('[data-oedit]').forEach((b)=>b.addEventListener('click',()=>loadOrderForm(b.dataset.oedit)));
@@ -2917,6 +2939,13 @@
     editingOrderId = id;
     orderForm.clienteNome.value=o.clienteNome||''; orderForm.telefone.value=o.telefone||''; orderForm.canal.value=o.canal||'Shopee';
     orderForm.obs.value=o.observacoes||''; orderForm.dataPedido.value=o.dataPedido||''; orderForm.dataEntrega.value=o.dataEntrega||'';
+    orderForm.numeroPedido.value = o.orderNumber || '';
+    orderForm.dataVenda.value = o.dataVenda || o.dataPedido || '';
+    orderForm.skuVenda.value = o.skuVenda || '';
+    orderForm.valorVenda.value = n(o.valorVenda) ?? n(o.valorTotal) ?? 0;
+    orderForm.custoPlataformaDescricao.value = o.custoPlataformaDescricao || '';
+    orderForm.custoPlataformaValor.value = n(o.custoPlataformaValor) ?? 0;
+    orderForm.custoProduto.value = n(o.custoProduto) ?? n(o.custoTotal) ?? 0;
     if (orderForm.dataPedido.value) orderForm.dataEntrega.value = addDaysToDate(orderForm.dataPedido.value, 30);
     orderForm.status.innerHTML = ORDER_STATUS.map((s)=>`<option value="${s.value}">${s.icon} ${s.value}</option>`).join("");
     orderForm.status.value=o.status||'A ENVIAR';
@@ -2981,12 +3010,27 @@
     const now = new Date().toISOString();
     const prev = editingOrderId ? (state.orders||[]).find((x)=>x.id===editingOrderId) : null;
     const dataPedido = orderForm.dataPedido.value || normalizeDateOnly();
+    const valorVenda = n(orderForm.valorVenda.value);
+    const custoPlataformaValor = n(orderForm.custoPlataformaValor.value) ?? 0;
+    const custoProduto = n(orderForm.custoProduto.value);
+    const valorVendaFinal = valorVenda ?? totals.valorTotal;
+    const custoProdutoFinal = custoProduto ?? totals.custoTotal;
+    const valorLiquido = valorVendaFinal - custoPlataformaValor;
+    const lucro = valorLiquido - custoProdutoFinal;
     const dataEntrega = addDaysToDate(dataPedido, 30);
     const order = {
       id: editingOrderId || (crypto?.randomUUID?.() || String(Date.now()+Math.random())),
-      orderNumber: prev?.orderNumber || newOrderNumber(),
+      orderNumber: orderForm.numeroPedido.value.trim() || prev?.orderNumber || newOrderNumber(),
       clienteNome: orderForm.clienteNome.value.trim(), telefone: orderForm.telefone.value.trim(), canal: orderForm.canal.value, observacoes: orderForm.obs.value.trim(),
       status: orderForm.status.value, dataPedido, dataEntrega,
+      dataVenda: orderForm.dataVenda.value || dataPedido,
+      skuVenda: orderForm.skuVenda.value.trim(),
+      valorVenda: valorVendaFinal,
+      custoPlataformaDescricao: orderForm.custoPlataformaDescricao.value.trim(),
+      custoPlataformaValor,
+      valorLiquido,
+      custoProduto: custoProdutoFinal,
+      lucro,
       itens: orderItemsDraft.map((it)=>({ productId: it.productId||null, nomeProduto: it.nomeProduto||'', sku: it.sku || '', quantidade: n(it.quantidade)??0, precoUnit: n(it.precoUnit)??0, custoUnit: n(it.custoUnit)??0, lucroUnit: n(it.lucroUnit)??0 })),
       valorTotal: totals.valorTotal, custoTotal: totals.custoTotal, lucroTotal: totals.lucroTotal, minutosCorte: totals.minutosCorte, minutosMontagem: totals.minutosMontagem,
       inventoryDebitedAt: prev?.inventoryDebitedAt || null,
