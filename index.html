@@ -655,6 +655,14 @@
           <button class="btn accent" id="btnLimparFiltroData" type="button">Limpar Filtro</button>
           <button class="btn" id="btnImprimirSeparacao" type="button">🖨️ Imprimir Separação</button>
         </div>
+        <div class="orders-toolbar" style="margin-top:10px; align-items:flex-end; gap:10px; flex-wrap:wrap;">
+          <div class="filter-field" style="min-width:280px;">
+            <label for="ordersBulkImportFile">Importação em massa (Excel)</label>
+            <input id="ordersBulkImportFile" type="file" accept=".xlsx,.xls,.csv" />
+          </div>
+          <button class="btn primary" id="btnImportarPedidosMassa" type="button">📥 Importar pedidos</button>
+          <div class="muted" style="flex:1 1 100%;">Colunas esperadas: PLATAFORMA, NUMERO PEDIDO, DATA VENDA, SKU, VALOR DA VENDA, CUSTO DA PLATAFORMA, VALOR LIQUIDO, CUSTO DO PRODUTO, LUCRO, STATUS, VENDEDOR.</div>
+        </div>
         <div style="overflow:auto; margin-top:8px;">
           <table class="table" id="ordersTable">
             <thead><tr><th>Plataforma</th><th>Numero Pedido</th><th>Data Venda</th><th>SKU</th><th class="right">Valor da Venda</th><th>Custo da Plataforma</th><th class="right">Valor Liquido</th><th class="right">Custo do Produto</th><th class="right">Lucro</th><th>Status</th><th>Vendedor</th><th class="right">Ações</th></tr></thead>
@@ -1062,6 +1070,7 @@
     query,
     setDoc,
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+  import * as XLSX from "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm";
   // ====== DADOS INICIAIS (da planilha) ======
   const DEFAULT_DATA = {
     woods: [{"name": "MDF Cru 3mm", "thickness": 3, "width": 140, "height": 90, "price": 60, "obs": null}, {"name": "MDF Cru 6mm", "thickness": 6, "width": 140, "height": 90, "price": 130, "obs": null}, {"name": "MDF Branco 3mm", "thickness": 3, "width": 140, "height": 90, "price": 145, "obs": null}],
@@ -2541,6 +2550,8 @@
     limpar: document.getElementById("btnLimparFiltroData"),
   };
   const btnPrintOrderPicking = document.getElementById("btnImprimirSeparacao");
+  const ordersBulkImportFile = document.getElementById("ordersBulkImportFile");
+  const btnImportarPedidosMassa = document.getElementById("btnImportarPedidosMassa");
   const orderQuickFilters = Array.from(document.querySelectorAll("[data-order-chip]"));
   const orderForm = {
     clienteNome: document.getElementById("order_clienteNome"), telefone: document.getElementById("order_telefone"), canal: document.getElementById("order_canal"), obs: document.getElementById("order_obs"),
@@ -2563,6 +2574,86 @@
     if (Number.isNaN(baseDate.getTime())) return normalizeDateOnly();
     baseDate.setDate(baseDate.getDate() + days);
     return normalizeDateOnly(baseDate);
+  }
+
+  function parseImportNumber(value) {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    const normalized = String(value ?? "").trim();
+    if (!normalized) return 0;
+    const cleaned = normalized
+      .replace(/R\$/gi, "")
+      .replace(/\s+/g, "")
+      .replace(/\.(?=\d{3}(\D|$))/g, "")
+      .replace(",", ".");
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function normalizeImportDate(value) {
+    if (!value && value !== 0) return normalizeDateOnly();
+    if (typeof value === "number") {
+      const serialAsDate = new Date(Math.round((value - 25569) * 86400 * 1000));
+      if (!Number.isNaN(serialAsDate.getTime())) return normalizeDateOnly(serialAsDate);
+    }
+    const text = String(value).trim();
+    if (!text) return normalizeDateOnly();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(text)) {
+      const [day, month, year] = text.split("/");
+      return `${year}-${month}-${day}`;
+    }
+    const parsed = new Date(text);
+    return Number.isNaN(parsed.getTime()) ? normalizeDateOnly() : normalizeDateOnly(parsed);
+  }
+
+  function parseImportedOrderRow(row = {}) {
+    const rowData = Object.fromEntries(Object.entries(row).map(([k, v]) => [String(k || "").trim().toUpperCase(), v]));
+    const hasValue = (key) => String(rowData[key] ?? "").trim() !== "";
+    const plataforma = String(rowData["PLATAFORMA"] || "").trim() || "Shopee";
+    const valorVenda = parseImportNumber(rowData["VALOR DA VENDA"]);
+    const custoPlataformaValorInformado = parseImportNumber(rowData["CUSTO DA PLATAFORMA"]);
+    const custoProdutoInformado = parseImportNumber(rowData["CUSTO DO PRODUTO"]);
+    const platformRule = getPlatformFeeRule(plataforma);
+    const custoPlataformaValor = hasValue("CUSTO DA PLATAFORMA") ? custoPlataformaValorInformado : Math.max(0, platformRule.calc(valorVenda));
+    const valorLiquidoInformado = parseImportNumber(rowData["VALOR LIQUIDO"]);
+    const valorLiquido = hasValue("VALOR LIQUIDO") ? valorLiquidoInformado : (valorVenda - custoPlataformaValor);
+    const custoProduto = hasValue("CUSTO DO PRODUTO") ? custoProdutoInformado : (getSkuProductCost(String(rowData["SKU"] || "").trim()) ?? 0);
+    const lucroInformado = parseImportNumber(rowData["LUCRO"]);
+    const lucro = hasValue("LUCRO") ? lucroInformado : (valorLiquido - custoProduto);
+    const dataVenda = normalizeImportDate(rowData["DATA VENDA"]);
+    const statusInformado = String(rowData["STATUS"] || "").trim().toUpperCase();
+    const statusValido = ORDER_STATUS.some((s) => s.value === statusInformado) ? statusInformado : "A ENVIAR";
+    const numeroPedido = String(rowData["NUMERO PEDIDO"] || "").trim();
+    return {
+      id: crypto?.randomUUID?.() || String(Date.now() + Math.random()),
+      orderNumber: numeroPedido || newOrderNumber(),
+      clienteNome: "Importação em massa",
+      telefone: "",
+      canal: plataforma,
+      observacoes: "Pedido importado por planilha.",
+      vendedor: String(rowData["VENDEDOR"] || "").trim(),
+      status: statusValido,
+      dataPedido: dataVenda,
+      dataEntrega: addDaysToDate(dataVenda, 30),
+      dataVenda,
+      skuVenda: String(rowData["SKU"] || "").trim(),
+      valorVenda,
+      custoPlataformaDescricao: platformRule.label,
+      custoPlataformaValor,
+      valorLiquido,
+      custoProduto,
+      lucro,
+      itens: [],
+      valorTotal: valorVenda,
+      custoTotal: custoProduto,
+      lucroTotal: lucro,
+      minutosCorte: 0,
+      minutosMontagem: 0,
+      inventoryDebitedAt: null,
+      financeEntryId: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   function startOfWeekDate(date = new Date()) {
@@ -3033,6 +3124,53 @@
     renderOrders();
   }));
   btnPrintOrderPicking?.addEventListener("click", printPickingList);
+  btnImportarPedidosMassa?.addEventListener("click", async () => {
+    const file = ordersBulkImportFile?.files?.[0];
+    if (!file) return alert("Selecione uma planilha (.xlsx, .xls ou .csv) para importar.");
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+      const firstSheetName = workbook.SheetNames?.[0];
+      if (!firstSheetName) return alert("Não foi encontrada nenhuma aba na planilha.");
+      const firstSheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+      if (!rows.length) return alert("A planilha está vazia.");
+
+      const importedOrders = rows.map((row) => parseImportedOrderRow(row));
+      const duplicatedOrderNumbers = new Set((state.orders || []).map((o) => String(o.orderNumber || "").trim().toUpperCase()));
+      const toInsert = importedOrders.filter((order) => {
+        const key = String(order.orderNumber || "").trim().toUpperCase();
+        if (!key) return true;
+        if (duplicatedOrderNumbers.has(key)) return false;
+        duplicatedOrderNumbers.add(key);
+        return true;
+      });
+
+      if (!toInsert.length) return alert("Nenhum pedido novo para importar (todos já existem pelo número do pedido).");
+
+      ensureFinanceSeeds();
+      toInsert.forEach((order) => {
+        order.financeEntryId = upsertFinanceOrderEntry(order, null);
+        state.orders.unshift(order);
+      });
+      saveState();
+
+      await Promise.allSettled(toInsert.map((order) => (USE_FIREBASE_ORDERS && db)
+        ? setDoc(doc(db, "orders", order.id), order, { merge: true })
+        : Promise.resolve()));
+      salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
+
+      if (ordersBulkImportFile) ordersBulkImportFile.value = "";
+      activeOrderQuickFilter = "todos";
+      syncQuickFilterUI();
+      renderOrders();
+      renderDashboard();
+      renderFinance();
+      alert(`${toInsert.length} pedido(s) importado(s) com sucesso.`);
+    } catch (error) {
+      alert(`Falha ao importar planilha: ${error?.message || error}`);
+    }
+  });
   document.querySelectorAll("[data-order-form-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
       openOrderFormCard();
