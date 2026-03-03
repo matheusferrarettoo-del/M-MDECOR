@@ -665,7 +665,7 @@
           </div>
           <button class="btn" id="btnBaixarModeloPedidos" type="button">⬇️ Baixar planilha de exemplo</button>
           <button class="btn primary" id="btnImportarPedidosMassa" type="button">📥 Importar pedidos</button>
-          <div class="muted" style="flex:1 1 100%;">Colunas esperadas: PLATAFORMA, NUMERO PEDIDO, DATA VENDA, SKU, VALOR DA VENDA, CUSTO DA PLATAFORMA, VALOR LIQUIDO, CUSTO DO PRODUTO, LUCRO, STATUS, VENDEDOR.</div>
+          <div class="muted" style="flex:1 1 100%;">Colunas esperadas: PLATAFORMA, NUMERO PEDIDO, DATA VENDA, SKU, UNIDADES, VALOR DA VENDA, CUSTO DA PLATAFORMA, VALOR LIQUIDO, CUSTO DO PRODUTO, LUCRO, STATUS, VENDEDOR.</div>
         </div>
         <div class="orders-bulk-bar">
           <label class="filter-field" style="min-width:250px;">
@@ -680,7 +680,7 @@
         </div>
         <div style="overflow:auto; margin-top:8px;">
           <table class="table" id="ordersTable">
-            <thead><tr><th><input type="checkbox" id="ordersSelectAll" aria-label="Selecionar todos os pedidos visíveis" /></th><th>Plataforma</th><th>Numero Pedido</th><th>Data Venda</th><th>SKU</th><th class="right">Valor da Venda</th><th>Custo da Plataforma</th><th class="right">Valor Liquido</th><th class="right">Custo do Produto</th><th class="right">Lucro</th><th>Status</th><th>Vendedor</th><th class="right">Ações</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="ordersSelectAll" aria-label="Selecionar todos os pedidos visíveis" /></th><th>Plataforma</th><th>Numero Pedido</th><th>Data Venda</th><th>SKU</th><th class="right">Unidades</th><th class="right">Valor da Venda</th><th>Custo da Plataforma</th><th class="right">Valor Liquido</th><th class="right">Custo do Produto</th><th class="right">Lucro</th><th>Status</th><th>Vendedor</th><th class="right">Ações</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -2646,6 +2646,8 @@
     const statusInformado = String(rowData["STATUS"] || "").trim().toUpperCase();
     const statusValido = ORDER_STATUS.some((s) => s.value === statusInformado) ? statusInformado : "A ENVIAR";
     const numeroPedido = String(rowData["NUMERO PEDIDO"] || "").trim();
+    const unidadesInformadas = parseImportNumber(rowData["UNIDADES"]);
+    const unidades = Math.max(1, Math.round(unidadesInformadas || 1));
     return {
       id: crypto?.randomUUID?.() || String(Date.now() + Math.random()),
       orderNumber: numeroPedido || newOrderNumber(),
@@ -2659,6 +2661,7 @@
       dataEntrega: addDaysToDate(dataVenda, 30),
       dataVenda,
       skuVenda: String(rowData["SKU"] || "").trim(),
+      unidades,
       valorVenda,
       custoPlataformaDescricao: platformRule.label,
       custoPlataformaValor,
@@ -2845,6 +2848,8 @@
   }
 
   function resolveSaleData(order = {}) {
+    const unidadesItens = (order.itens || []).reduce((acc, it) => acc + (Math.max(0, n(it.quantidade) ?? 0)), 0);
+    const unidades = Math.max(0, n(order.unidades) ?? unidadesItens ?? 0);
     const skuFromItems = [...new Set((order.itens || []).map((it) => it.sku).filter(Boolean))].join(", ");
     const valorVenda = n(order.valorVenda) ?? n(order.valorTotal) ?? 0;
     const custoPlataformaValor = n(order.custoPlataformaValor) ?? 0;
@@ -2856,6 +2861,7 @@
       numeroPedido: order.orderNumber || "—",
       dataVenda: order.dataVenda || order.dataPedido || "—",
       sku: order.skuVenda || skuFromItems || "—",
+      unidades,
       valorVenda,
       custoPlataformaLabel: order.custoPlataformaDescricao || (custoPlataformaValor > 0 ? fmtBRL(custoPlataformaValor) : "—"),
       valorLiquido,
@@ -3039,12 +3045,12 @@
     syncSelectedOrdersWithState();
     updateOrderSummaryCards(rows);
 
-    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="13" class="muted">Nenhum pedido cadastrado.</td></tr>'; updateBulkSelectionUI(rows); return; }
+    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="14" class="muted">Nenhum pedido cadastrado.</td></tr>'; updateBulkSelectionUI(rows); return; }
     rows.forEach((o, idx)=>{
       const sale = resolveSaleData(o);
       const tr=document.createElement('tr');
       const checked = selectedOrderIds.has(o.id) ? 'checked' : '';
-      tr.innerHTML=`<td><input type="checkbox" data-oselect="${o.id}" ${checked} aria-label="Selecionar pedido ${sale.numeroPedido}" /></td><td>${sale.plataforma}</td><td>${sale.numeroPedido}</td><td>${sale.dataVenda}</td><td>${sale.sku}</td><td class="right">${fmtBRL(sale.valorVenda)}</td><td>${sale.custoPlataformaLabel} (${fmtBRL(n(o.custoPlataformaValor) ?? 0)})</td><td class="right">${fmtBRL(sale.valorLiquido)}</td><td class="right">${fmtBRL(sale.custoProduto)}</td><td class="right">${fmtBRL(sale.lucro)}</td><td>${statusPill(o.status||'A ENVIAR')}</td><td>${sale.vendedor}</td><td class="right"><div class="orders-actions"><button class="icon-btn" title="Editar" data-oedit="${o.id}">✎</button><button class="icon-btn" title="Excluir" data-odel="${o.id}">🗑</button></div></td>`;
+      tr.innerHTML=`<td><input type="checkbox" data-oselect="${o.id}" ${checked} aria-label="Selecionar pedido ${sale.numeroPedido}" /></td><td>${sale.plataforma}</td><td>${sale.numeroPedido}</td><td>${sale.dataVenda}</td><td>${sale.sku}</td><td class="right">${fmtNum(sale.unidades,0)}</td><td class="right">${fmtBRL(sale.valorVenda)}</td><td>${sale.custoPlataformaLabel} (${fmtBRL(n(o.custoPlataformaValor) ?? 0)})</td><td class="right">${fmtBRL(sale.valorLiquido)}</td><td class="right">${fmtBRL(sale.custoProduto)}</td><td class="right">${fmtBRL(sale.lucro)}</td><td>${statusPill(o.status||'A ENVIAR')}</td><td>${sale.vendedor}</td><td class="right"><div class="orders-actions"><button class="icon-btn" title="Editar" data-oedit="${o.id}">✎</button><button class="icon-btn" title="Excluir" data-odel="${o.id}">🗑</button></div></td>`;
       orderBody.appendChild(tr);
     });
     orderBody.querySelectorAll('[data-oedit]').forEach((b)=>b.addEventListener('click',()=>loadOrderForm(b.dataset.oedit)));
@@ -3234,6 +3240,7 @@
       { key: "numeroPedido", label: "NUMERO PEDIDO" },
       { key: "dataVenda", label: "DATA VENDA" },
       { key: "sku", label: "SKU" },
+      { key: "unidades", label: "UNIDADES" },
       { key: "valorVenda", label: "VALOR DA VENDA" },
       { key: "custoPlataforma", label: "CUSTO DA PLATAFORMA" },
       { key: "valorLiquido", label: "VALOR LIQUIDO" },
@@ -3248,6 +3255,7 @@
         numeroPedido: "PED-0001",
         dataVenda: "2026-01-15",
         sku: "MDF-123",
+        unidades: "2",
         valorVenda: "120.00",
         custoPlataforma: "20.00",
         valorLiquido: "100.00",
@@ -3357,6 +3365,7 @@
       custoProduto: custoProdutoFinal,
       lucro,
       itens: orderItemsDraft.map((it)=>({ productId: it.productId||null, nomeProduto: it.nomeProduto||'', sku: it.sku || '', quantidade: n(it.quantidade)??0, precoUnit: n(it.precoUnit)??0, custoUnit: n(it.custoUnit)??0, lucroUnit: n(it.lucroUnit)??0 })),
+      unidades: orderItemsDraft.reduce((acc, it) => acc + Math.max(0, n(it.quantidade) ?? 0), 0),
       valorTotal: totals.valorTotal, custoTotal: totals.custoTotal, lucroTotal: totals.lucroTotal, minutosCorte: totals.minutosCorte, minutosMontagem: totals.minutosMontagem,
       inventoryDebitedAt: prev?.inventoryDebitedAt || null,
       financeEntryId: prev?.financeEntryId || null,
@@ -3540,7 +3549,7 @@
     const orderHeaders = [
       { key: 'numero', label: 'Pedido' }, { key: 'cliente', label: 'Cliente' }, { key: 'canal', label: 'Canal' },
       { key: 'dataPedido', label: 'Data pedido' }, { key: 'dataEntrega', label: 'Prazo' }, { key: 'status', label: 'Status' },
-      { key: 'valorTotal', label: 'Valor total' }, { key: 'lucroTotal', label: 'Lucro total' },
+      { key: 'unidades', label: 'Unidades' }, { key: 'valorTotal', label: 'Valor total' }, { key: 'lucroTotal', label: 'Lucro total' },
     ];
     const histHeaders = [
       { key: 'data', label: 'Data' }, { key: 'produto', label: 'Produto' }, { key: 'sku', label: 'SKU' },
@@ -3553,7 +3562,7 @@
 
     const orderRows = () => (state.orders || []).map((o) => ({
       numero: o.orderNumber || '', cliente: o.clienteNome || '', canal: o.canal || '', dataPedido: o.dataPedido || '', dataEntrega: o.dataEntrega || '',
-      status: o.status || '', valorTotal: (n(o.valorTotal) ?? 0).toFixed(2), lucroTotal: (n(o.lucroTotal) ?? 0).toFixed(2),
+      status: o.status || '', unidades: Math.round(Math.max(0, n(o.unidades) ?? (o.itens || []).reduce((acc, it) => acc + Math.max(0, n(it.quantidade) ?? 0), 0))), valorTotal: (n(o.valorTotal) ?? 0).toFixed(2), lucroTotal: (n(o.lucroTotal) ?? 0).toFixed(2),
     }));
     const histRows = () => (state.priceHistory || []).map((h) => ({
       data: h.data || '', produto: h.nome || '', sku: h.sku || '', custoTotal: (n(h.custoTotal) ?? 0).toFixed(2), preco: (n(h.preco) ?? 0).toFixed(2), margem: ((n(h.margem) ?? 0) * 100).toFixed(2), canal: h.canal || '',
