@@ -663,6 +663,7 @@
             <label for="ordersBulkImportFile">Importação em massa (Excel)</label>
             <input id="ordersBulkImportFile" type="file" accept=".xlsx,.xls,.csv" />
           </div>
+          <button class="btn" id="btnBaixarModeloPedidos" type="button">📄 Baixar planilha de exemplo</button>
           <button class="btn primary" id="btnImportarPedidosMassa" type="button">📥 Importar pedidos</button>
           <div class="muted" style="flex:1 1 100%;">Colunas esperadas: PLATAFORMA, NUMERO PEDIDO, DATA VENDA, SKU, VALOR DA VENDA, CUSTO DA PLATAFORMA, VALOR LIQUIDO, CUSTO DO PRODUTO, LUCRO, STATUS, VENDEDOR.</div>
         </div>
@@ -2565,6 +2566,7 @@
   };
   const btnPrintOrderPicking = document.getElementById("btnImprimirSeparacao");
   const ordersBulkImportFile = document.getElementById("ordersBulkImportFile");
+  const btnBaixarModeloPedidos = document.getElementById("btnBaixarModeloPedidos");
   const btnImportarPedidosMassa = document.getElementById("btnImportarPedidosMassa");
   const ordersSelectAll = document.getElementById("ordersSelectAll");
   const ordersBulkStatus = document.getElementById("ordersBulkStatus");
@@ -2674,6 +2676,46 @@
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+  }
+
+  function downloadOrderImportTemplate() {
+    const headers = [
+      "PLATAFORMA",
+      "NUMERO PEDIDO",
+      "DATA VENDA",
+      "SKU",
+      "VALOR DA VENDA",
+      "CUSTO DA PLATAFORMA",
+      "VALOR LIQUIDO",
+      "CUSTO DO PRODUTO",
+      "LUCRO",
+      "STATUS",
+      "VENDEDOR",
+    ];
+    const templateRows = [
+      {
+        PLATAFORMA: "Shopee",
+        "NUMERO PEDIDO": "PED-0001",
+        "DATA VENDA": "2026-01-15",
+        SKU: "MDF-123",
+        "VALOR DA VENDA": 120.9,
+        "CUSTO DA PLATAFORMA": 14.51,
+        "VALOR LIQUIDO": 106.39,
+        "CUSTO DO PRODUTO": 48.2,
+        LUCRO: 58.19,
+        STATUS: "A ENVIAR",
+        VENDEDOR: "Maria",
+      },
+    ];
+    const sheet = XLSX.utils.json_to_sheet(templateRows, { header: headers });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, "Pedidos");
+    const workbookBinary = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    downloadBlob(
+      "modelo-importacao-pedidos.xlsx",
+      workbookBinary,
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
   }
 
   function startOfWeekDate(date = new Date()) {
@@ -3226,6 +3268,7 @@
     if (!confirm(`Deseja excluir ${ids.length} pedido(s) selecionado(s)?`)) return;
     deleteOrdersByIds(ids);
   });
+  btnBaixarModeloPedidos?.addEventListener("click", downloadOrderImportTemplate);
   btnImportarPedidosMassa?.addEventListener("click", async () => {
     const file = ordersBulkImportFile?.files?.[0];
     if (!file) return alert("Selecione uma planilha (.xlsx, .xls ou .csv) para importar.");
