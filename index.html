@@ -148,6 +148,9 @@
     .orders-toolbar .btn{height:42px;}
     .orders-toolbar .btn.primary{background:#285f8d; border-color:#285f8d;}
     .orders-toolbar .btn.accent{background:#2f8a6f; border-color:#2f8a6f; color:#fff;}
+    .orders-bulk-bar{display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; margin-top:8px; padding:8px; border:1px dashed #d6deea; border-radius:10px; background:#f8fbff;}
+    .orders-bulk-bar .filter-field{min-width:200px; flex:1;}
+    .orders-bulk-bar .muted{font-size:11px;}
     .orders-panel .table{border-radius:10px; border-color:#dce4ef;}
     .orders-panel .table th{background:#eff3f8; color:#44566f; font-size:11px; text-transform:uppercase; letter-spacing:.35px;}
     .orders-panel .table td{font-size:12px; color:#3f4f63;}
@@ -663,9 +666,20 @@
           <button class="btn primary" id="btnImportarPedidosMassa" type="button">📥 Importar pedidos</button>
           <div class="muted" style="flex:1 1 100%;">Colunas esperadas: PLATAFORMA, NUMERO PEDIDO, DATA VENDA, SKU, VALOR DA VENDA, CUSTO DA PLATAFORMA, VALOR LIQUIDO, CUSTO DO PRODUTO, LUCRO, STATUS, VENDEDOR.</div>
         </div>
+        <div class="orders-bulk-bar">
+          <label class="filter-field" style="min-width:250px;">
+            <span>Status para seleção</span>
+            <select id="ordersBulkStatus">
+              <option value="">Selecione um status...</option>
+            </select>
+          </label>
+          <button class="btn primary" id="btnBulkUpdateOrderStatus" type="button">Atualizar status selecionados</button>
+          <button class="btn danger" id="btnBulkDeleteOrders" type="button">Excluir selecionados</button>
+          <div class="muted" id="ordersSelectionInfo">Nenhum pedido selecionado.</div>
+        </div>
         <div style="overflow:auto; margin-top:8px;">
           <table class="table" id="ordersTable">
-            <thead><tr><th>Plataforma</th><th>Numero Pedido</th><th>Data Venda</th><th>SKU</th><th class="right">Valor da Venda</th><th>Custo da Plataforma</th><th class="right">Valor Liquido</th><th class="right">Custo do Produto</th><th class="right">Lucro</th><th>Status</th><th>Vendedor</th><th class="right">Ações</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="ordersSelectAll" aria-label="Selecionar todos os pedidos visíveis" /></th><th>Plataforma</th><th>Numero Pedido</th><th>Data Venda</th><th>SKU</th><th class="right">Valor da Venda</th><th>Custo da Plataforma</th><th class="right">Valor Liquido</th><th class="right">Custo do Produto</th><th class="right">Lucro</th><th>Status</th><th>Vendedor</th><th class="right">Ações</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -2552,6 +2566,11 @@
   const btnPrintOrderPicking = document.getElementById("btnImprimirSeparacao");
   const ordersBulkImportFile = document.getElementById("ordersBulkImportFile");
   const btnImportarPedidosMassa = document.getElementById("btnImportarPedidosMassa");
+  const ordersSelectAll = document.getElementById("ordersSelectAll");
+  const ordersBulkStatus = document.getElementById("ordersBulkStatus");
+  const btnBulkUpdateOrderStatus = document.getElementById("btnBulkUpdateOrderStatus");
+  const btnBulkDeleteOrders = document.getElementById("btnBulkDeleteOrders");
+  const ordersSelectionInfo = document.getElementById("ordersSelectionInfo");
   const orderQuickFilters = Array.from(document.querySelectorAll("[data-order-chip]"));
   const orderForm = {
     clienteNome: document.getElementById("order_clienteNome"), telefone: document.getElementById("order_telefone"), canal: document.getElementById("order_canal"), obs: document.getElementById("order_obs"),
@@ -2563,6 +2582,7 @@
   let editingOrderId = null;
   let orderItemsDraft = [];
   let activeOrderQuickFilter = "hoje";
+  let selectedOrderIds = new Set();
 
   function normalizeDateOnly(date = new Date()) {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -2938,21 +2958,101 @@
     return id;
   }
 
+
+  function syncSelectedOrdersWithState() {
+    const validIds = new Set((state.orders || []).map((o) => o.id));
+    selectedOrderIds = new Set(Array.from(selectedOrderIds).filter((id) => validIds.has(id)));
+  }
+
+  function updateBulkSelectionUI(rows = getFilteredOrders()) {
+    const visibleIds = rows.map((o) => o.id);
+    const selectedVisible = visibleIds.filter((id) => selectedOrderIds.has(id)).length;
+    if (ordersSelectAll) {
+      ordersSelectAll.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+      ordersSelectAll.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
+    }
+    if (ordersSelectionInfo) {
+      const total = selectedOrderIds.size;
+      ordersSelectionInfo.textContent = total
+        ? `${total} pedido(s) selecionado(s).`
+        : "Nenhum pedido selecionado.";
+    }
+  }
+
+  function applyBulkStatusToSelectedOrders(status) {
+    if (!status) return alert("Selecione um status para atualizar os pedidos.");
+    const targetIds = Array.from(selectedOrderIds);
+    if (!targetIds.length) return alert("Selecione ao menos um pedido na tabela.");
+
+    const now = new Date().toISOString();
+    const updatedOrders = [];
+    targetIds.forEach((id) => {
+      const idx = (state.orders || []).findIndex((o) => o.id === id);
+      if (idx < 0) return;
+      const current = state.orders[idx];
+      const updated = { ...current, status, updatedAt: now };
+      state.orders[idx] = updated;
+      updatedOrders.push(updated);
+    });
+
+    saveState();
+    if (USE_FIREBASE_ORDERS && db) {
+      Promise.allSettled(updatedOrders.map((order) => setDoc(doc(db, "orders", order.id), order, { merge: true })))
+        .catch((e) => console.warn("Falha ao atualizar status em massa no Firebase:", e));
+    }
+    renderOrders();
+    renderDashboard();
+  }
+
+  function deleteOrdersByIds(ids = []) {
+    const idSet = new Set(ids);
+    if (!idSet.size) return;
+
+    const productionToDelete = (state.productionOrders || []).filter((x) => idSet.has(x.orderId));
+    const wasEditingRemoved = editingOrderId && idSet.has(editingOrderId);
+    state.finance.entries = (state.finance?.entries || []).filter((entry) => !idSet.has(entry.orderId));
+    state.orders = (state.orders || []).filter((x) => !idSet.has(x.id));
+    state.productionOrders = (state.productionOrders || []).filter((x) => !idSet.has(x.orderId));
+    selectedOrderIds = new Set(Array.from(selectedOrderIds).filter((id) => !idSet.has(id)));
+
+    if (wasEditingRemoved) resetOrderForm();
+    saveState();
+
+    if (USE_FIREBASE_ORDERS && db) {
+      Promise.allSettled(Array.from(idSet).map((id) => deleteDoc(doc(db, "orders", id))))
+        .catch((e) => console.warn("Falha ao excluir pedidos em massa no Firebase:", e));
+      Promise.allSettled(productionToDelete.map((op) => deleteDoc(doc(db, "production_orders", op.id))))
+        .catch((e) => console.warn("Falha ao excluir OPs em massa no Firebase:", e));
+    }
+
+    salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
+    renderOrders();
+    renderDashboard();
+  }
+
   function renderOrders(){
     if (!orderBody) return;
     orderBody.innerHTML = "";
     const rows = getFilteredOrders();
+    syncSelectedOrdersWithState();
     updateOrderSummaryCards(rows);
 
-    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="12" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
+    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="13" class="muted">Nenhum pedido cadastrado.</td></tr>'; updateBulkSelectionUI(rows); return; }
     rows.forEach((o, idx)=>{
       const sale = resolveSaleData(o);
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${sale.plataforma}</td><td>${sale.numeroPedido}</td><td>${sale.dataVenda}</td><td>${sale.sku}</td><td class="right">${fmtBRL(sale.valorVenda)}</td><td>${sale.custoPlataformaLabel} (${fmtBRL(n(o.custoPlataformaValor) ?? 0)})</td><td class="right">${fmtBRL(sale.valorLiquido)}</td><td class="right">${fmtBRL(sale.custoProduto)}</td><td class="right">${fmtBRL(sale.lucro)}</td><td>${statusPill(o.status||'A ENVIAR')}</td><td>${sale.vendedor}</td><td class="right"><div class="orders-actions"><button class="icon-btn" title="Editar" data-oedit="${o.id}">✎</button><button class="icon-btn" title="Excluir" data-odel="${o.id}">🗑</button></div></td>`;
+      const checked = selectedOrderIds.has(o.id) ? 'checked' : '';
+      tr.innerHTML=`<td><input type="checkbox" data-oselect="${o.id}" ${checked} aria-label="Selecionar pedido ${sale.numeroPedido}" /></td><td>${sale.plataforma}</td><td>${sale.numeroPedido}</td><td>${sale.dataVenda}</td><td>${sale.sku}</td><td class="right">${fmtBRL(sale.valorVenda)}</td><td>${sale.custoPlataformaLabel} (${fmtBRL(n(o.custoPlataformaValor) ?? 0)})</td><td class="right">${fmtBRL(sale.valorLiquido)}</td><td class="right">${fmtBRL(sale.custoProduto)}</td><td class="right">${fmtBRL(sale.lucro)}</td><td>${statusPill(o.status||'A ENVIAR')}</td><td>${sale.vendedor}</td><td class="right"><div class="orders-actions"><button class="icon-btn" title="Editar" data-oedit="${o.id}">✎</button><button class="icon-btn" title="Excluir" data-odel="${o.id}">🗑</button></div></td>`;
       orderBody.appendChild(tr);
     });
     orderBody.querySelectorAll('[data-oedit]').forEach((b)=>b.addEventListener('click',()=>loadOrderForm(b.dataset.oedit)));
     orderBody.querySelectorAll('[data-odel]').forEach((b)=>b.addEventListener('click',()=>deleteOrder(b.dataset.odel)));
+    orderBody.querySelectorAll('[data-oselect]').forEach((b)=>b.addEventListener('change', ()=> {
+      if (b.checked) selectedOrderIds.add(b.dataset.oselect);
+      else selectedOrderIds.delete(b.dataset.oselect);
+      updateBulkSelectionUI(rows);
+    }));
+    updateBulkSelectionUI(rows);
   }
 
   function getFilteredOrders() {
@@ -3052,20 +3152,7 @@
     const target = (state.orders||[]).find((x)=>x.id===id);
     if (!target) return;
     if (!confirm(`Deseja excluir o pedido ${target.orderNumber||''}?`)) return;
-    const productionToDelete = (state.productionOrders || []).filter((x) => x.orderId === id);
-    state.finance.entries = (state.finance?.entries || []).filter((entry) => entry.orderId !== id);
-    state.orders = (state.orders||[]).filter((x)=>x.id!==id);
-    state.productionOrders = (state.productionOrders||[]).filter((x)=>x.orderId!==id);
-    if (editingOrderId === id) resetOrderForm();
-    saveState();
-    if (USE_FIREBASE_ORDERS && db) {
-      deleteDoc(doc(db, "orders", id)).catch((e) => console.warn("Falha ao excluir pedido no Firebase:", e));
-      Promise.all(productionToDelete.map((op) => deleteDoc(doc(db, "production_orders", op.id))))
-        .catch((e) => console.warn("Falha ao excluir OP vinculada no Firebase:", e));
-    }
-    salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
-    renderOrders();
-    renderDashboard();
+    deleteOrdersByIds([id]);
   }
 
   function loadOrderForm(id){
@@ -3124,6 +3211,21 @@
     renderOrders();
   }));
   btnPrintOrderPicking?.addEventListener("click", printPickingList);
+  ordersBulkStatus.innerHTML = `<option value="">Selecione um status...</option>${ORDER_STATUS.map((s) => `<option value="${s.value}">${s.icon} ${s.value}</option>`).join("")}`;
+  ordersSelectAll?.addEventListener("change", () => {
+    const rows = getFilteredOrders();
+    const visibleIds = rows.map((o) => o.id);
+    if (ordersSelectAll.checked) visibleIds.forEach((id) => selectedOrderIds.add(id));
+    else visibleIds.forEach((id) => selectedOrderIds.delete(id));
+    renderOrders();
+  });
+  btnBulkUpdateOrderStatus?.addEventListener("click", () => applyBulkStatusToSelectedOrders(ordersBulkStatus?.value || ""));
+  btnBulkDeleteOrders?.addEventListener("click", () => {
+    const ids = Array.from(selectedOrderIds);
+    if (!ids.length) return alert("Selecione ao menos um pedido para excluir.");
+    if (!confirm(`Deseja excluir ${ids.length} pedido(s) selecionado(s)?`)) return;
+    deleteOrdersByIds(ids);
+  });
   btnImportarPedidosMassa?.addEventListener("click", async () => {
     const file = ordersBulkImportFile?.files?.[0];
     if (!file) return alert("Selecione uma planilha (.xlsx, .xls ou .csv) para importar.");
