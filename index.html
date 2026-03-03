@@ -2682,15 +2682,16 @@
     const custoPlataformaValor = hasValue("CUSTO DA PLATAFORMA") ? custoPlataformaValorInformado : Math.max(0, platformRule.calc(valorVenda));
     const valorLiquidoInformado = parseImportNumber(rowData["VALOR LIQUIDO"]);
     const valorLiquido = hasValue("VALOR LIQUIDO") ? valorLiquidoInformado : (valorVenda - custoPlataformaValor);
-    const custoProduto = hasValue("CUSTO DO PRODUTO") ? custoProdutoInformado : (getSkuProductCost(String(rowData["SKU"] || "").trim()) ?? 0);
+    const unidadesInformadas = parseImportNumber(rowData["UNIDADES"]);
+    const unidades = Math.max(1, Math.round(unidadesInformadas || 1));
+    const custoSkuUnitario = getSkuProductCost(String(rowData["SKU"] || "").trim()) ?? 0;
+    const custoProduto = hasValue("CUSTO DO PRODUTO") ? custoProdutoInformado : (custoSkuUnitario * unidades);
     const lucroInformado = parseImportNumber(rowData["LUCRO"]);
     const lucro = hasValue("LUCRO") ? lucroInformado : (valorLiquido - custoProduto);
     const dataVenda = normalizeImportDate(rowData["DATA VENDA"]);
     const statusInformado = String(rowData["STATUS"] || "").trim().toUpperCase();
     const statusValido = ORDER_STATUS.some((s) => s.value === statusInformado) ? statusInformado : "A ENVIAR";
     const numeroPedido = String(rowData["NUMERO PEDIDO"] || "").trim();
-    const unidadesInformadas = parseImportNumber(rowData["UNIDADES"]);
-    const unidades = Math.max(1, Math.round(unidadesInformadas || 1));
     return {
       id: crypto?.randomUUID?.() || String(Date.now() + Math.random()),
       orderNumber: numeroPedido || newOrderNumber(),
@@ -2934,7 +2935,8 @@
     const platformRule = getPlatformFeeRule(orderForm.canal.value);
     const custoPlataformaValor = Math.max(0, platformRule.calc(valorVenda));
     const custoProdutoPorSku = getSkuProductCost(orderForm.skuVenda.value);
-    const custoProduto = totals.custoTotal > 0 ? totals.custoTotal : (custoProdutoPorSku ?? 0);
+    const unidadesDoPedido = Math.max(1, (orderItemsDraft || []).reduce((acc, it) => acc + Math.max(0, n(it.quantidade) ?? 0), 0));
+    const custoProduto = totals.custoTotal > 0 ? totals.custoTotal : ((custoProdutoPorSku ?? 0) * unidadesDoPedido);
     const valorLiquido = valorVenda - custoPlataformaValor;
     const lucro = valorLiquido - custoProduto;
     return { valorVenda, custoPlataformaValor, custoProduto, valorLiquido, lucro, platformLabel: platformRule.label };
