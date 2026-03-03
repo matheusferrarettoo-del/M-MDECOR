@@ -170,6 +170,7 @@
     .orders-form-tabs{display:flex; gap:4px; flex-wrap:wrap; margin-top:12px; border-top:1px solid #dde4ee; padding-top:10px;}
     .orders-form-tabs .btn{background:#f3f6fb; color:#4b5f77; border-color:#d8e0ec;}
     .orders-form-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;}
+    .auto-field{background:#fff8b3; border-color:#e3d15f; font-weight:700;}
     @media (max-width: 980px){ .orders-summary{grid-template-columns:repeat(2,minmax(0,1fr));} }
     @media (max-width: 640px){ .orders-summary{grid-template-columns:1fr;} .orders-form-grid{grid-template-columns:1fr;} }
     .wood-items-list{display:flex; flex-direction:column; gap:8px; margin-top:8px;}
@@ -656,7 +657,7 @@
         </div>
         <div style="overflow:auto; margin-top:8px;">
           <table class="table" id="ordersTable">
-            <thead><tr><th>Numero Pedido</th><th>Data Venda</th><th>SKU</th><th class="right">Valor da Venda</th><th>Custo da Plataforma</th><th class="right">Valor Liquido</th><th class="right">Custo do Produto</th><th class="right">Lucro</th><th>Status</th><th class="right">Ações</th></tr></thead>
+            <thead><tr><th>Plataforma</th><th>Numero Pedido</th><th>Data Venda</th><th>SKU</th><th class="right">Valor da Venda</th><th>Custo da Plataforma</th><th class="right">Valor Liquido</th><th class="right">Custo do Produto</th><th class="right">Lucro</th><th>Status</th><th>Vendedor</th><th class="right">Ações</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -697,10 +698,13 @@
         <div class="row"><label>Número do pedido</label><input id="order_numeroPedido" type="text" placeholder="Ex.: PED-0001" /></div>
         <div class="row"><label>Data da venda</label><input id="order_dataVenda" type="date" /></div>
         <div class="row"><label>SKU</label><input id="order_skuVenda" type="text" placeholder="Ex.: MDF-123" /></div>
+        <div class="row"><label>Vendedor</label><input id="order_vendedor" type="text" placeholder="Ex.: Maria" /></div>
         <div class="row"><label>Valor da venda (R$)</label><input id="order_valorVenda" type="number" step="0.01" min="0" /></div>
-        <div class="row"><label>Custo da plataforma (descrição)</label><input id="order_custoPlataformaDescricao" type="text" placeholder="Ex.: Shopee 20% + R$ 4,00" /></div>
-        <div class="row"><label>Custo da plataforma (R$)</label><input id="order_custoPlataformaValor" type="number" step="0.01" min="0" /></div>
-        <div class="row"><label>Custo do produto (R$)</label><input id="order_custoProduto" type="number" step="0.01" min="0" /></div>
+        <div class="row"><label>Custo da plataforma (automático)</label><input id="order_custoPlataformaDescricao" class="auto-field" type="text" readonly /></div>
+        <div class="row"><label>Custo da plataforma (R$, automático)</label><input id="order_custoPlataformaValor" class="auto-field" type="number" step="0.01" min="0" readonly /></div>
+        <div class="row"><label>Valor líquido (R$, automático)</label><input id="order_valorLiquido" class="auto-field" type="number" step="0.01" min="0" readonly /></div>
+        <div class="row"><label>Custo do produto (R$, automático)</label><input id="order_custoProduto" class="auto-field" type="number" step="0.01" min="0" readonly /></div>
+        <div class="row"><label>Lucro (R$, automático)</label><input id="order_lucro" class="auto-field" type="number" step="0.01" readonly /></div>
         <div class="btnbar"><button class="btn accent" id="btnSalvarPedido">Salvar pedido</button></div>
       </div>
 
@@ -2541,9 +2545,9 @@
   const orderForm = {
     clienteNome: document.getElementById("order_clienteNome"), telefone: document.getElementById("order_telefone"), canal: document.getElementById("order_canal"), obs: document.getElementById("order_obs"),
     dataPedido: document.getElementById("order_dataPedido"), dataEntrega: document.getElementById("order_dataEntrega"), status: document.getElementById("order_status"),
-    numeroPedido: document.getElementById("order_numeroPedido"), dataVenda: document.getElementById("order_dataVenda"), skuVenda: document.getElementById("order_skuVenda"),
+    numeroPedido: document.getElementById("order_numeroPedido"), dataVenda: document.getElementById("order_dataVenda"), skuVenda: document.getElementById("order_skuVenda"), vendedor: document.getElementById("order_vendedor"),
     valorVenda: document.getElementById("order_valorVenda"), custoPlataformaDescricao: document.getElementById("order_custoPlataformaDescricao"),
-    custoPlataformaValor: document.getElementById("order_custoPlataformaValor"), custoProduto: document.getElementById("order_custoProduto")
+    custoPlataformaValor: document.getElementById("order_custoPlataformaValor"), valorLiquido: document.getElementById("order_valorLiquido"), custoProduto: document.getElementById("order_custoProduto"), lucro: document.getElementById("order_lucro")
   };
   let editingOrderId = null;
   let orderItemsDraft = [];
@@ -2661,6 +2665,7 @@
     });
     renderOrderItems();
     renderOrderSummary();
+    syncOrderAutoFields();
   }
 
   function renderOrderItems(){
@@ -2734,6 +2739,7 @@
     const custoProduto = n(order.custoProduto) ?? n(order.custoTotal) ?? 0;
     const lucro = n(order.lucro) ?? (valorLiquido - custoProduto);
     return {
+      plataforma: order.canal || "—",
       numeroPedido: order.orderNumber || "—",
       dataVenda: order.dataVenda || order.dataPedido || "—",
       sku: order.skuVenda || skuFromItems || "—",
@@ -2742,7 +2748,43 @@
       valorLiquido,
       custoProduto,
       lucro,
+      vendedor: order.vendedor || "—",
     };
+  }
+
+  function getPlatformFeeRule(canal = "") {
+    const c = String(canal || "").trim().toLowerCase();
+    if (c === "shopee") return { label: "Shopee 20% + R$ 4,00", calc: (valor) => (valor * 0.20) + 4 };
+    if (c === "tiktok") return { label: "TikTok 6% + R$ 2,00", calc: (valor) => (valor * 0.06) + 2 };
+    return { label: `${canal || "Canal"} sem taxa automática`, calc: () => 0 };
+  }
+
+  function getSkuProductCost(sku = "") {
+    const normalizedSku = String(sku || "").trim().toLowerCase();
+    if (!normalizedSku) return null;
+    const product = (state.products || []).find((p) => String(p.sku || "").trim().toLowerCase() === normalizedSku);
+    return n(product?.custoTotal) ?? null;
+  }
+
+  function computeOrderAutoFinance() {
+    const totals = orderTotals(orderItemsDraft || []);
+    const valorVenda = n(orderForm.valorVenda.value) ?? totals.valorTotal;
+    const platformRule = getPlatformFeeRule(orderForm.canal.value);
+    const custoPlataformaValor = Math.max(0, platformRule.calc(valorVenda));
+    const custoProdutoPorSku = getSkuProductCost(orderForm.skuVenda.value);
+    const custoProduto = totals.custoTotal > 0 ? totals.custoTotal : (custoProdutoPorSku ?? 0);
+    const valorLiquido = valorVenda - custoPlataformaValor;
+    const lucro = valorLiquido - custoProduto;
+    return { valorVenda, custoPlataformaValor, custoProduto, valorLiquido, lucro, platformLabel: platformRule.label };
+  }
+
+  function syncOrderAutoFields() {
+    const calc = computeOrderAutoFinance();
+    if (orderForm.custoPlataformaDescricao) orderForm.custoPlataformaDescricao.value = calc.platformLabel;
+    if (orderForm.custoPlataformaValor) orderForm.custoPlataformaValor.value = calc.custoPlataformaValor.toFixed(2);
+    if (orderForm.valorLiquido) orderForm.valorLiquido.value = calc.valorLiquido.toFixed(2);
+    if (orderForm.custoProduto) orderForm.custoProduto.value = calc.custoProduto.toFixed(2);
+    if (orderForm.lucro) orderForm.lucro.value = calc.lucro.toFixed(2);
   }
 
   function resetOrderForm(){
@@ -2758,6 +2800,7 @@
     orderForm.dataEntrega.value = addDaysToDate(hoje, 30);
     orderItemsDraft = [{ id: crypto?.randomUUID?.() || String(Date.now()), productId: "", manualProduct: false, quantidade: 1, precoUnit: 0 }];
     recalcOrderDraft();
+    syncOrderAutoFields();
     document.getElementById("orderResumoProducao").textContent = "Sem OP gerada.";
   }
 
@@ -2810,11 +2853,11 @@
     const rows = getFilteredOrders();
     updateOrderSummaryCards(rows);
 
-    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="10" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
+    if(!rows.length){ orderBody.innerHTML='<tr><td colspan="12" class="muted">Nenhum pedido cadastrado.</td></tr>'; return; }
     rows.forEach((o, idx)=>{
       const sale = resolveSaleData(o);
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${sale.numeroPedido}</td><td>${sale.dataVenda}</td><td>${sale.sku}</td><td class="right">${fmtBRL(sale.valorVenda)}</td><td>${sale.custoPlataformaLabel}</td><td class="right">${fmtBRL(sale.valorLiquido)}</td><td class="right">${fmtBRL(sale.custoProduto)}</td><td class="right">${fmtBRL(sale.lucro)}</td><td>${statusPill(o.status||'A ENVIAR')}</td><td class="right"><div class="orders-actions"><button class="icon-btn" title="Editar" data-oedit="${o.id}">✎</button><button class="icon-btn" title="Excluir" data-odel="${o.id}">🗑</button></div></td>`;
+      tr.innerHTML=`<td>${sale.plataforma}</td><td>${sale.numeroPedido}</td><td>${sale.dataVenda}</td><td>${sale.sku}</td><td class="right">${fmtBRL(sale.valorVenda)}</td><td>${sale.custoPlataformaLabel} (${fmtBRL(n(o.custoPlataformaValor) ?? 0)})</td><td class="right">${fmtBRL(sale.valorLiquido)}</td><td class="right">${fmtBRL(sale.custoProduto)}</td><td class="right">${fmtBRL(sale.lucro)}</td><td>${statusPill(o.status||'A ENVIAR')}</td><td>${sale.vendedor}</td><td class="right"><div class="orders-actions"><button class="icon-btn" title="Editar" data-oedit="${o.id}">✎</button><button class="icon-btn" title="Excluir" data-odel="${o.id}">🗑</button></div></td>`;
       orderBody.appendChild(tr);
     });
     orderBody.querySelectorAll('[data-oedit]').forEach((b)=>b.addEventListener('click',()=>loadOrderForm(b.dataset.oedit)));
@@ -2942,15 +2985,19 @@
     orderForm.numeroPedido.value = o.orderNumber || '';
     orderForm.dataVenda.value = o.dataVenda || o.dataPedido || '';
     orderForm.skuVenda.value = o.skuVenda || '';
+    orderForm.vendedor.value = o.vendedor || '';
     orderForm.valorVenda.value = n(o.valorVenda) ?? n(o.valorTotal) ?? 0;
     orderForm.custoPlataformaDescricao.value = o.custoPlataformaDescricao || '';
     orderForm.custoPlataformaValor.value = n(o.custoPlataformaValor) ?? 0;
+    orderForm.valorLiquido.value = n(o.valorLiquido) ?? 0;
     orderForm.custoProduto.value = n(o.custoProduto) ?? n(o.custoTotal) ?? 0;
+    orderForm.lucro.value = n(o.lucro) ?? 0;
     if (orderForm.dataPedido.value) orderForm.dataEntrega.value = addDaysToDate(orderForm.dataPedido.value, 30);
     orderForm.status.innerHTML = ORDER_STATUS.map((s)=>`<option value="${s.value}">${s.icon} ${s.value}</option>`).join("");
     orderForm.status.value=o.status||'A ENVIAR';
     orderItemsDraft=(o.itens||[]).map((it)=>({ ...it, manualProduct: !it.productId && !!String(it.nomeProduto || '').trim(), id: crypto?.randomUUID?.() || String(Date.now()+Math.random()) }));
     recalcOrderDraft();
+    syncOrderAutoFields();
     openOrderFormCard();
     const op = (state.productionOrders||[]).find((x)=>x.orderId===o.id);
     document.getElementById("orderResumoProducao").textContent = op ? `OP criada: Corte ${fmtNum(op.minutosCorte,0)} min · Montagem ${fmtNum(op.minutosMontagem,0)} min` : 'Sem OP gerada.';
@@ -2966,6 +3013,7 @@
     renderOrderSummary();
   });
   [orderForm.dataEntrega, orderForm.status].forEach((f)=>f.addEventListener('input', renderOrderSummary));
+  [orderForm.canal, orderForm.valorVenda, orderForm.skuVenda].forEach((f)=>f.addEventListener('input', syncOrderAutoFields));
   [orderDateFilter.inicio, orderDateFilter.fim].forEach((f)=>f?.addEventListener('input', renderOrders));
   orderDateFilter.aplicar?.addEventListener('click', ()=>{
     activeOrderQuickFilter = "todos";
@@ -3010,23 +3058,23 @@
     const now = new Date().toISOString();
     const prev = editingOrderId ? (state.orders||[]).find((x)=>x.id===editingOrderId) : null;
     const dataPedido = orderForm.dataPedido.value || normalizeDateOnly();
-    const valorVenda = n(orderForm.valorVenda.value);
-    const custoPlataformaValor = n(orderForm.custoPlataformaValor.value) ?? 0;
-    const custoProduto = n(orderForm.custoProduto.value);
-    const valorVendaFinal = valorVenda ?? totals.valorTotal;
-    const custoProdutoFinal = custoProduto ?? totals.custoTotal;
-    const valorLiquido = valorVendaFinal - custoPlataformaValor;
-    const lucro = valorLiquido - custoProdutoFinal;
+    const autoFinance = computeOrderAutoFinance();
+    const valorVendaFinal = autoFinance.valorVenda;
+    const custoProdutoFinal = autoFinance.custoProduto;
+    const custoPlataformaValor = autoFinance.custoPlataformaValor;
+    const valorLiquido = autoFinance.valorLiquido;
+    const lucro = autoFinance.lucro;
     const dataEntrega = addDaysToDate(dataPedido, 30);
     const order = {
       id: editingOrderId || (crypto?.randomUUID?.() || String(Date.now()+Math.random())),
       orderNumber: orderForm.numeroPedido.value.trim() || prev?.orderNumber || newOrderNumber(),
       clienteNome: orderForm.clienteNome.value.trim(), telefone: orderForm.telefone.value.trim(), canal: orderForm.canal.value, observacoes: orderForm.obs.value.trim(),
+      vendedor: orderForm.vendedor.value.trim(),
       status: orderForm.status.value, dataPedido, dataEntrega,
       dataVenda: orderForm.dataVenda.value || dataPedido,
       skuVenda: orderForm.skuVenda.value.trim(),
       valorVenda: valorVendaFinal,
-      custoPlataformaDescricao: orderForm.custoPlataformaDescricao.value.trim(),
+      custoPlataformaDescricao: autoFinance.platformLabel,
       custoPlataformaValor,
       valorLiquido,
       custoProduto: custoProdutoFinal,
