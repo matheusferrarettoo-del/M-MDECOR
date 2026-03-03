@@ -580,6 +580,9 @@
           </div>
         </div>
         <div class="row"><label>Status</label><select id="prod_ativo"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
+        <div class="row"><label>Tipo de cadastro</label><select id="prod_modo_cadastro"><option value="auto">Precificação automática</option><option value="manual">Cadastro manual (produto + custo)</option></select></div>
+        <div class="row hide" data-manual-field><label>Custo total manual (R$)*</label><input id="prod_custo_manual" type="number" step="0.01" min="0" /></div>
+        <div class="row hide" data-manual-field><label>Preço de venda manual (R$)</label><input id="prod_preco_manual" type="number" step="0.01" min="0" /></div>
         <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;" />
         <div class="row"><label>Comprimento (cm)</label><input id="prod_comp" type="number" step="0.01" /></div>
         <div class="row"><label>Largura (cm)</label><input id="prod_larg" type="number" step="0.01" /></div>
@@ -1777,6 +1780,9 @@
     wood: document.getElementById("prod_wood"),
     espessura: document.getElementById("prod_espessura"),
     ativo: document.getElementById("prod_ativo"),
+    modoCadastro: document.getElementById("prod_modo_cadastro"),
+    custoManual: document.getElementById("prod_custo_manual"),
+    precoManual: document.getElementById("prod_preco_manual"),
     comp: document.getElementById("prod_comp"),
     larg: document.getElementById("prod_larg"),
     pct: document.getElementById("prod_pct"),
@@ -1792,6 +1798,18 @@
     obs: document.getElementById("prod_obs"),
   };
   const prodWoodItemsContainer = document.getElementById("prodWoodItems");
+  const manualProductFields = Array.from(document.querySelectorAll("[data-manual-field]"));
+
+  function toggleProductFormMode() {
+    const isManual = produtoForm.modoCadastro.value === "manual";
+    manualProductFields.forEach((row) => row.classList.toggle("hide", !isManual));
+    ["prod_wood", "prod_espessura", "prod_comp", "prod_larg", "prod_pct", "prod_corte", "prod_gravacao", "prod_montagem", "prod_mao_sec", "prod_embalagem", "prodWoodItems", "btnAddProdWood"].forEach((id) => {
+      const node = document.getElementById(id);
+      const row = node?.closest?.(".row") || node;
+      if (row) row.classList.toggle("hide", isManual);
+    });
+    if (isManual && !produtoForm.categoria.value.trim()) produtoForm.categoria.value = "Manual";
+  }
 
   function normalizeProductWoodItems(items) {
     if (!Array.isArray(items) || !items.length) return [emptyWoodItem()];
@@ -1883,6 +1901,7 @@
     editingProductId = null;
     Object.values(produtoForm).forEach((x) => { if (x.tagName === "SELECT") return; x.value = ""; });
     produtoForm.ativo.value = "true";
+    produtoForm.modoCadastro.value = "auto";
     produtoForm.canal.value = "Shopee";
     produtoForm.wood.value = state.woods[0]?.name || "";
     produtoForm.embalagem.value = state.params.embalagem ?? 0;
@@ -1890,10 +1909,12 @@
     document.getElementById("prodResumoCalc").textContent = "Preencha os dados e clique em recalcular.";
     renderProductWoodItems([emptyWoodItem()]);
     lastProductCalc = null;
+    toggleProductFormMode();
     if (!keepOpen) hideProdutoForm();
   }
 
   function computeProdutoFromForm() {
+    const isManual = produtoForm.modoCadastro.value === "manual";
     const w = woodComputed(getWoodByName(produtoForm.wood.value) || {});
     const comp = n(produtoForm.comp.value) ?? 0;
     const larg = n(produtoForm.larg.value) ?? 0;
@@ -1929,18 +1950,24 @@
     const overhead = subtotal * (overheadPct/100);
     const custoTotal = subtotal + ajustePerdas + overhead;
 
-    const preco = custoTotal * (1 + margemDesejada/100 + taxaCanal/100);
-    const lucro = preco - custoTotal;
+    const custoManual = n(produtoForm.custoManual.value) ?? 0;
+    const precoManual = n(produtoForm.precoManual.value);
+
+    const custoFinal = isManual ? custoManual : custoTotal;
+    const preco = isManual
+      ? (precoManual ?? (custoFinal * (1 + margemDesejada/100 + taxaCanal/100)))
+      : (custoTotal * (1 + margemDesejada/100 + taxaCanal/100));
+    const lucro = preco - custoFinal;
     const margemLiquida = preco > 0 ? (lucro/preco) : 0;
 
     return {
       nome: produtoForm.nome.value.trim(),
       sku: produtoForm.sku.value.trim(),
       categoria: produtoForm.categoria.value.trim(),
-      woodId: produtoForm.wood.value,
-      madeira: w.name || null,
-      espessura: produtoForm.espessura.value.trim() || (w.thickness ? `${w.thickness}mm` : null),
-      woodItems,
+      woodId: isManual ? null : produtoForm.wood.value,
+      madeira: isManual ? null : (w.name || null),
+      espessura: isManual ? null : (produtoForm.espessura.value.trim() || (w.thickness ? `${w.thickness}mm` : null)),
+      woodItems: isManual ? [] : woodItems,
       dimensoes: { comp, larg, pctChapa: pctChapa ?? null },
       tempos: { corte: tCorte, gravacao: tGrav, montagem: tMont },
       embalagem,
@@ -1949,12 +1976,15 @@
       canal,
       taxaCanal,
       margemDesejada,
-      custoMdf,
-      custoLaser,
-      custoMao,
-      ajustePerdas,
-      overhead,
-      custoTotal,
+      modoCadastro: isManual ? "manual" : "auto",
+      custoManual: isManual ? custoManual : null,
+      precoManual: isManual ? (precoManual ?? null) : null,
+      custoMdf: isManual ? 0 : custoMdf,
+      custoLaser: isManual ? 0 : custoLaser,
+      custoMao: isManual ? 0 : custoMao,
+      ajustePerdas: isManual ? 0 : ajustePerdas,
+      overhead: isManual ? 0 : overhead,
+      custoTotal: custoFinal,
       precoSugerido: preco,
       lucro,
       margemLiquida,
@@ -2084,6 +2114,9 @@
     produtoForm.wood.value = p.woodId || p.madeira || "";
     produtoForm.espessura.value = p.espessura || "";
     produtoForm.ativo.value = String(!!p.ativo);
+    produtoForm.modoCadastro.value = p.modoCadastro || "auto";
+    produtoForm.custoManual.value = p.custoManual ?? "";
+    produtoForm.precoManual.value = p.precoManual ?? "";
     produtoForm.comp.value = p.dimensoes?.comp ?? "";
     produtoForm.larg.value = p.dimensoes?.larg ?? "";
     produtoForm.pct.value = p.dimensoes?.pctChapa ?? "";
@@ -2098,6 +2131,7 @@
     produtoForm.canal.value = p.canal || "Shopee";
     produtoForm.margem.value = p.margemDesejada ?? "";
     renderProductWoodItems(normalizeProductWoodItems(p.woodItems));
+    toggleProductFormMode();
     lastProductCalc = p;
     showProdutoForm();
   }
@@ -2468,10 +2502,13 @@
     items.push(emptyWoodItem());
     renderProductWoodItems(items);
   });
+  produtoForm.modoCadastro.addEventListener("change", toggleProductFormMode);
 
   document.getElementById("btnRecalcularProduto").addEventListener("click", () => {
     const calc = computeProdutoFromForm();
-    if (!calc.nome || !calc.sku || !calc.categoria || !calc.woodId) return alert("Preencha Nome, SKU, Categoria e Madeira.");
+    if (!calc.nome || !calc.sku || !calc.categoria) return alert("Preencha Nome, SKU e Categoria.");
+    if (calc.modoCadastro !== "manual" && !calc.woodId) return alert("Selecione a madeira para precificação automática.");
+    if (calc.modoCadastro === "manual" && calc.custoTotal <= 0) return alert("Informe o custo manual do produto.");
     lastProductCalc = calc;
     document.getElementById("prodResumoCalc").innerHTML = `Custo total: <b>${fmtBRL(calc.custoTotal)}</b> | Preço sugerido: <b>${fmtBRL(calc.precoSugerido)}</b> | Lucro: <b>${fmtBRL(calc.lucro)}</b> | Margem líquida: <b>${fmtPct(calc.margemLiquida)}</b>`;
   });
@@ -2479,7 +2516,9 @@
   document.getElementById("btnSalvarProdutoModulo").addEventListener("click", async () => {
     const calc = computeProdutoFromForm();
     lastProductCalc = calc;
-    if (!calc.nome || !calc.sku || !calc.categoria || !calc.woodId) return alert("Campos obrigatórios: nome, SKU, categoria e madeira.");
+    if (!calc.nome || !calc.sku || !calc.categoria) return alert("Campos obrigatórios: nome, SKU e categoria.");
+    if (calc.modoCadastro !== "manual" && !calc.woodId) return alert("Selecione a madeira para precificação automática.");
+    if (calc.modoCadastro === "manual" && calc.custoTotal <= 0) return alert("Informe o custo manual do produto.");
     if (state.products.some((p) => p.sku === calc.sku && p.id !== editingProductId)) return alert("SKU já cadastrado. Use um SKU único.");
 
     const now = new Date().toISOString();
@@ -2535,6 +2574,7 @@
     produtoForm.nome.value = el.nome.value || lastCalc.nome || "";
     produtoForm.sku.value = el.sku.value || lastCalc.sku || "";
     produtoForm.categoria.value = "";
+    produtoForm.modoCadastro.value = "auto";
     produtoForm.wood.value = lastCalc.wood || "";
     produtoForm.comp.value = lastCalc.comp ?? "";
     produtoForm.larg.value = lastCalc.larg ?? "";
@@ -2546,6 +2586,9 @@
     produtoForm.embalagem.value = lastCalc.embalagem ?? state.params.embalagem ?? 0;
     produtoForm.canal.value = lastCalc.canal || "Shopee";
     produtoForm.margem.value = lastCalc.margemUsada ?? state.params.margemDesejada ?? 0;
+    produtoForm.custoManual.value = "";
+    produtoForm.precoManual.value = "";
+    toggleProductFormMode();
     renderProductWoodItems(normalizeProductWoodItems(lastCalc.woodItems));
   });
 
