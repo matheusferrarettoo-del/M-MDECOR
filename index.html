@@ -621,19 +621,19 @@
     <div class="orders-shell">
       <div class="orders-summary">
         <div class="orders-summary-card blue">
-          <div class="title">🛒 Pedidos Hoje</div>
+          <div class="title" id="ordersSummaryTitleCount">🛒 Pedidos Hoje</div>
           <div class="value" id="ordersTodayCount">12</div>
         </div>
         <div class="orders-summary-card teal">
-          <div class="title">💰 Faturamento</div>
+          <div class="title" id="ordersSummaryTitleRevenue">💰 Faturamento</div>
           <div class="value small" id="ordersGrossRevenue">R$ 2.480,90</div>
         </div>
         <div class="orders-summary-card green">
-          <div class="title">🪙 Lucro Hoje</div>
+          <div class="title" id="ordersSummaryTitleProfit">🪙 Lucro Hoje</div>
           <div class="value small" id="ordersTodayProfit">R$ 820,30</div>
         </div>
         <div class="orders-summary-card red">
-          <div class="title">⚠️ Pedidos Pendentes</div>
+          <div class="title" id="ordersSummaryTitlePending">⚠️ Pedidos Pendentes</div>
           <div class="value" id="ordersPendingCount">3</div>
         </div>
       </div>
@@ -3134,15 +3134,19 @@
 
   function updateOrderSummaryCards(rows) {
     const pendingCount = rows.filter((o) => !["CONCLUIDO", "CANCELADO"].includes(o.status)).length;
-    const today = new Date().toISOString().slice(0,10);
-    const todayRows = rows.filter((o) => (o.dataPedido || "") === today);
-    const pedidosHoje = todayRows.length;
+    const pedidosFiltrados = rows.length;
     const faturamento = rows.reduce((acc,o)=>acc + (n(o.valorTotal) ?? 0),0);
-    const lucroHoje = todayRows.reduce((acc,o)=>acc + (n(o.lucroTotal) ?? 0),0);
+    const lucroFiltrado = rows.reduce((acc,o)=>acc + (n(o.lucroTotal) ?? 0),0);
     const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
-    setText("ordersTodayCount", String(pedidosHoje));
+
+    setText("ordersSummaryTitleCount", "🛒 Pedidos filtrados");
+    setText("ordersSummaryTitleRevenue", "💰 Faturamento filtrado");
+    setText("ordersSummaryTitleProfit", "🪙 Lucro filtrado");
+    setText("ordersSummaryTitlePending", "⚠️ Pendentes no filtro");
+
+    setText("ordersTodayCount", String(pedidosFiltrados));
     setText("ordersGrossRevenue", fmtBRL(faturamento));
-    setText("ordersTodayProfit", fmtBRL(lucroHoje));
+    setText("ordersTodayProfit", fmtBRL(lucroFiltrado));
     setText("ordersPendingCount", String(pendingCount));
   }
 
