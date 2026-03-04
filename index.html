@@ -679,6 +679,8 @@
           </label>
           <button class="btn primary" id="btnBulkUpdateOrderStatus" type="button">Atualizar status selecionados</button>
           <button class="btn danger" id="btnBulkDeleteOrders" type="button">Excluir selecionados</button>
+          <button class="btn" id="btnExportSelectedOrdersXLS" type="button">⬇️ Exportar selecionados (Excel)</button>
+          <button class="btn" id="btnExportSelectedOrdersPDF" type="button">🧾 Exportar selecionados (PDF)</button>
           <div class="muted" id="ordersSelectionInfo">Nenhum pedido selecionado.</div>
         </div>
         <div style="overflow:auto; margin-top:8px;">
@@ -2615,6 +2617,8 @@
   const ordersBulkStatus = document.getElementById("ordersBulkStatus");
   const btnBulkUpdateOrderStatus = document.getElementById("btnBulkUpdateOrderStatus");
   const btnBulkDeleteOrders = document.getElementById("btnBulkDeleteOrders");
+  const btnExportSelectedOrdersXLS = document.getElementById("btnExportSelectedOrdersXLS");
+  const btnExportSelectedOrdersPDF = document.getElementById("btnExportSelectedOrdersPDF");
   const ordersSelectionInfo = document.getElementById("ordersSelectionInfo");
   const orderQuickFilters = Array.from(document.querySelectorAll("[data-order-chip]"));
   const orderForm = {
@@ -3057,6 +3061,107 @@
     renderDashboard();
   }
 
+  function getSelectedOrdersForExport() {
+    const selected = (state.orders || []).filter((o) => selectedOrderIds.has(o.id));
+    if (!selected.length) {
+      alert("Selecione ao menos um pedido para exportar.");
+      return null;
+    }
+    return selected;
+  }
+
+  function buildSelectedOrdersExportData(rows = []) {
+    const headers = [
+      { key: "plataforma", label: "Plataforma" },
+      { key: "numeroPedido", label: "Número Pedido" },
+      { key: "dataVenda", label: "Data Venda" },
+      { key: "sku", label: "SKU" },
+      { key: "unidades", label: "Unidades" },
+      { key: "valorVenda", label: "Valor da Venda" },
+      { key: "valorLiquido", label: "Valor Líquido" },
+      { key: "custoProduto", label: "Custo do Produto" },
+      { key: "lucro", label: "Lucro" },
+      { key: "status", label: "Status" },
+      { key: "vendedor", label: "Vendedor" },
+    ];
+    const totals = rows.reduce((acc, order) => {
+      const sale = resolveSaleData(order);
+      acc.valorVenda += n(sale.valorVenda) ?? 0;
+      acc.valorLiquido += n(sale.valorLiquido) ?? 0;
+      acc.custoProduto += n(sale.custoProduto) ?? 0;
+      acc.lucro += n(sale.lucro) ?? 0;
+      return acc;
+    }, { valorVenda: 0, valorLiquido: 0, custoProduto: 0, lucro: 0 });
+
+    const exportRows = rows.map((order) => {
+      const sale = resolveSaleData(order);
+      return {
+        plataforma: sale.plataforma,
+        numeroPedido: sale.numeroPedido,
+        dataVenda: sale.dataVenda,
+        sku: sale.sku,
+        unidades: fmtNum(sale.unidades, 0),
+        valorVenda: fmtBRL(sale.valorVenda),
+        valorLiquido: fmtBRL(sale.valorLiquido),
+        custoProduto: fmtBRL(sale.custoProduto),
+        lucro: fmtBRL(sale.lucro),
+        status: order.status || "A ENVIAR",
+        vendedor: sale.vendedor,
+      };
+    });
+
+    return { headers, exportRows, totals };
+  }
+
+  function exportSelectedOrdersToXLS() {
+    const selected = getSelectedOrdersForExport();
+    if (!selected) return;
+    const { headers, exportRows, totals } = buildSelectedOrdersExportData(selected);
+    const summaryRows = [
+      { label: "Total do Valor das Vendas selecionadas", value: fmtBRL(totals.valorVenda) },
+      { label: "Total Valor Líquido", value: fmtBRL(totals.valorLiquido) },
+      { label: "Total Custo do Produto", value: fmtBRL(totals.custoProduto) },
+      { label: "Total Lucro", value: fmtBRL(totals.lucro) },
+    ];
+
+    const detailHead = headers.map((h) => `<th>${h.label}</th>`).join("");
+    const detailBody = exportRows.map((row) => `<tr>${headers.map((h) => `<td>${row[h.key] ?? ""}</td>`).join("")}</tr>`).join("");
+    const summaryBody = summaryRows.map((row) => `<tr><td>${row.label}</td><td>${row.value}</td></tr>`).join("");
+    const content = `<!doctype html><html><head><meta charset="utf-8"/><title>Pedidos Selecionados</title></head><body><h1>Pedidos Selecionados</h1><table border="1"><thead><tr>${detailHead}</tr></thead><tbody>${detailBody}</tbody></table><br/><table border="1"><thead><tr><th>Resumo</th><th>Valor</th></tr></thead><tbody>${summaryBody}</tbody></table></body></html>`;
+    downloadBlob("pedidos_selecionados.xls", content, "application/vnd.ms-excel;charset=utf-8");
+  }
+
+  function exportSelectedOrdersToPDF() {
+    const selected = getSelectedOrdersForExport();
+    if (!selected) return;
+    const { headers, exportRows, totals } = buildSelectedOrdersExportData(selected);
+    const win = window.open("", "_blank");
+    if (!win) return alert("Permita pop-ups para exportar em PDF.");
+
+    const header = headers.map((h) => `<th>${h.label}</th>`).join("");
+    const body = exportRows.map((row) => `<tr>${headers.map((h) => `<td>${row[h.key] ?? ""}</td>`).join("")}</tr>`).join("");
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"/><title>Pedidos Selecionados</title><style>
+      body{font-family:Arial;padding:20px}
+      table{width:100%;border-collapse:collapse;margin-top:10px}
+      th,td{border:1px solid #ddd;padding:8px;font-size:12px;text-align:left}
+      th{background:#f3f3f3}
+      .summary{margin-top:14px;max-width:540px}
+      .summary td:first-child{font-weight:700}
+    </style></head><body>
+      <h1>Pedidos Selecionados</h1>
+      <table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>
+      <table class="summary"><tbody>
+        <tr><td>Total do Valor das Vendas selecionadas</td><td>${fmtBRL(totals.valorVenda)}</td></tr>
+        <tr><td>Total Valor Líquido</td><td>${fmtBRL(totals.valorLiquido)}</td></tr>
+        <tr><td>Total Custo do Produto</td><td>${fmtBRL(totals.custoProduto)}</td></tr>
+        <tr><td>Total Lucro</td><td>${fmtBRL(totals.lucro)}</td></tr>
+      </tbody></table>
+    </body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
   function deleteOrdersByIds(ids = []) {
     const idSet = new Set(ids);
     if (!idSet.size) return;
@@ -3283,6 +3388,8 @@
     if (!confirm(`Deseja excluir ${ids.length} pedido(s) selecionado(s)?`)) return;
     deleteOrdersByIds(ids);
   });
+  btnExportSelectedOrdersXLS?.addEventListener("click", exportSelectedOrdersToXLS);
+  btnExportSelectedOrdersPDF?.addEventListener("click", exportSelectedOrdersToPDF);
   btnBaixarModeloPedidos?.addEventListener("click", () => {
     const templateHeaders = [
       { key: "plataforma", label: "PLATAFORMA" },
