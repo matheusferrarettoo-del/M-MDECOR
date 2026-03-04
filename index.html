@@ -657,6 +657,12 @@
             <label for="ordersDataFim">Data final</label>
             <input id="ordersDataFim" type="date" />
           </div>
+          <div class="filter-field">
+            <label for="ordersStatusFiltro">Status</label>
+            <select id="ordersStatusFiltro">
+              <option value="">Todos os status</option>
+            </select>
+          </div>
           <button class="btn primary" id="btnAplicarFiltroData" type="button">🔎 Filtrar</button>
           <button class="btn accent" id="btnLimparFiltroData" type="button">Limpar Filtro</button>
           <button class="btn" id="btnImprimirSeparacao" type="button">🖨️ Imprimir Separação</button>
@@ -2606,6 +2612,7 @@
   const orderDateFilter = {
     inicio: document.getElementById("ordersDataInicio"),
     fim: document.getElementById("ordersDataFim"),
+    status: document.getElementById("ordersStatusFiltro"),
     aplicar: document.getElementById("btnAplicarFiltroData"),
     limpar: document.getElementById("btnLimparFiltroData"),
   };
@@ -3281,12 +3288,14 @@
   function getFilteredOrders() {
     const inicio = orderDateFilter.inicio?.value || "";
     const fim = orderDateFilter.fim?.value || "";
+    const status = orderDateFilter.status?.value || "";
     return (state.orders||[])
       .filter((o)=>{
         const dataPedido = o.dataPedido || "";
         if (!dataPedido) return !inicio && !fim;
         if (inicio && dataPedido < inicio) return false;
         if (fim && dataPedido > fim) return false;
+        if (status && o.status !== status) return false;
         const today = normalizeDateOnly();
         if (activeOrderQuickFilter === "hoje" && dataPedido !== today) return false;
         if (activeOrderQuickFilter === "shopee" && String(o.canal || "").toLowerCase() !== "shopee") return false;
@@ -3419,7 +3428,7 @@
   });
   [orderForm.dataEntrega, orderForm.status].forEach((f)=>f.addEventListener('input', renderOrderSummary));
   [orderForm.canal, orderForm.valorVenda, orderForm.skuVenda].forEach((f)=>f.addEventListener('input', syncOrderAutoFields));
-  [orderDateFilter.inicio, orderDateFilter.fim].forEach((f)=>f?.addEventListener('input', renderOrders));
+  [orderDateFilter.inicio, orderDateFilter.fim, orderDateFilter.status].forEach((f)=>f?.addEventListener('input', renderOrders));
   orderDateFilter.aplicar?.addEventListener('click', ()=>{
     activeOrderQuickFilter = "todos";
     syncQuickFilterUI();
@@ -3428,6 +3437,7 @@
   orderDateFilter.limpar?.addEventListener('click', ()=>{
     if (orderDateFilter.inicio) orderDateFilter.inicio.value = "";
     if (orderDateFilter.fim) orderDateFilter.fim.value = "";
+    if (orderDateFilter.status) orderDateFilter.status.value = "";
     activeOrderQuickFilter = "hoje";
     syncQuickFilterUI();
     renderOrders();
@@ -3438,6 +3448,9 @@
     renderOrders();
   }));
   btnPrintOrderPicking?.addEventListener("click", printPickingList);
+  if (orderDateFilter.status) {
+    orderDateFilter.status.innerHTML = `<option value="">Todos os status</option>${ORDER_STATUS.map((s) => `<option value="${s.value}">${s.icon} ${s.value}</option>`).join("")}`;
+  }
   ordersBulkStatus.innerHTML = `<option value="">Selecione um status...</option>${ORDER_STATUS.map((s) => `<option value="${s.value}">${s.icon} ${s.value}</option>`).join("")}`;
   ordersSelectAll?.addEventListener("change", () => {
     const rows = getFilteredOrders();
