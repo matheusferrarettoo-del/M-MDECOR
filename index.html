@@ -2729,6 +2729,71 @@
     };
   }
 
+  function normalizeOrderNumberKey(orderNumber) {
+    return String(orderNumber || "").trim().toUpperCase();
+  }
+
+  function comparableOrderSnapshot(order) {
+    return {
+      orderNumber: String(order?.orderNumber || "").trim(),
+      clienteNome: String(order?.clienteNome || "").trim(),
+      telefone: String(order?.telefone || "").trim(),
+      canal: String(order?.canal || "").trim(),
+      observacoes: String(order?.observacoes || "").trim(),
+      vendedor: String(order?.vendedor || "").trim(),
+      status: String(order?.status || "").trim(),
+      dataPedido: String(order?.dataPedido || "").trim(),
+      dataEntrega: String(order?.dataEntrega || "").trim(),
+      dataVenda: String(order?.dataVenda || "").trim(),
+      skuVenda: String(order?.skuVenda || "").trim(),
+      unidades: n(order?.unidades) ?? 0,
+      valorVenda: n(order?.valorVenda) ?? 0,
+      custoPlataformaDescricao: String(order?.custoPlataformaDescricao || "").trim(),
+      custoPlataformaValor: n(order?.custoPlataformaValor) ?? 0,
+      valorLiquido: n(order?.valorLiquido) ?? 0,
+      custoProduto: n(order?.custoProduto) ?? 0,
+      lucro: n(order?.lucro) ?? 0,
+      itens: Array.isArray(order?.itens) ? order.itens : [],
+      valorTotal: n(order?.valorTotal) ?? 0,
+      custoTotal: n(order?.custoTotal) ?? 0,
+      lucroTotal: n(order?.lucroTotal) ?? 0,
+      minutosCorte: n(order?.minutosCorte) ?? 0,
+      minutosMontagem: n(order?.minutosMontagem) ?? 0,
+    };
+  }
+
+  function hasOrderMeaningfulChanges(currentOrder, nextOrder) {
+    return JSON.stringify(comparableOrderSnapshot(currentOrder)) !== JSON.stringify(comparableOrderSnapshot(nextOrder));
+  }
+
+  function mergeImportedOrder(existingOrder, importedOrder) {
+    const dataPedido = importedOrder.dataPedido || existingOrder.dataPedido || normalizeDateOnly();
+    const dataVenda = importedOrder.dataVenda || existingOrder.dataVenda || dataPedido;
+    return {
+      ...existingOrder,
+      orderNumber: importedOrder.orderNumber || existingOrder.orderNumber,
+      canal: importedOrder.canal,
+      observacoes: importedOrder.observacoes,
+      vendedor: importedOrder.vendedor,
+      status: importedOrder.status,
+      dataPedido,
+      dataEntrega: addDaysToDate(dataPedido, 30),
+      dataVenda,
+      skuVenda: importedOrder.skuVenda,
+      unidades: importedOrder.unidades,
+      valorVenda: importedOrder.valorVenda,
+      custoPlataformaDescricao: importedOrder.custoPlataformaDescricao,
+      custoPlataformaValor: importedOrder.custoPlataformaValor,
+      valorLiquido: importedOrder.valorLiquido,
+      custoProduto: importedOrder.custoProduto,
+      lucro: importedOrder.lucro,
+      valorTotal: importedOrder.valorTotal,
+      custoTotal: importedOrder.custoTotal,
+      lucroTotal: importedOrder.lucroTotal,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   function startOfWeekDate(date = new Date()) {
     const clone = new Date(date);
     const day = clone.getDay();
@@ -3432,25 +3497,48 @@
       if (!rows.length) return alert("A planilha está vazia.");
 
       const importedOrders = rows.map((row) => parseImportedOrderRow(row));
-      const duplicatedOrderNumbers = new Set((state.orders || []).map((o) => String(o.orderNumber || "").trim().toUpperCase()));
-      const toInsert = importedOrders.filter((order) => {
-        const key = String(order.orderNumber || "").trim().toUpperCase();
-        if (!key) return true;
-        if (duplicatedOrderNumbers.has(key)) return false;
-        duplicatedOrderNumbers.add(key);
-        return true;
+      const ordersByNumber = new Map((state.orders || []).map((o) => [normalizeOrderNumberKey(o.orderNumber), o]));
+      const processedOrderNumbers = new Set();
+      const toInsert = [];
+      const toUpdate = [];
+      let ignored = 0;
+
+      importedOrders.forEach((importedOrder) => {
+        const key = normalizeOrderNumberKey(importedOrder.orderNumber);
+        if (key && processedOrderNumbers.has(key)) return;
+        if (key) processedOrderNumbers.add(key);
+        const existing = key ? ordersByNumber.get(key) : null;
+        if (!existing) {
+          toInsert.push(importedOrder);
+          if (key) ordersByNumber.set(key, importedOrder);
+          return;
+        }
+        const updatedOrder = mergeImportedOrder(existing, importedOrder);
+        if (!hasOrderMeaningfulChanges(existing, updatedOrder)) {
+          ignored += 1;
+          return;
+        }
+        toUpdate.push({ previous: existing, next: updatedOrder });
+        ordersByNumber.set(key, updatedOrder);
       });
 
-      if (!toInsert.length) return alert("Nenhum pedido novo para importar (todos já existem pelo número do pedido).");
+      if (!toInsert.length && !toUpdate.length) return alert("Nenhum pedido novo/atualizado para importar (todos já existem com os mesmos dados)." );
 
       ensureFinanceSeeds();
       toInsert.forEach((order) => {
         order.financeEntryId = upsertFinanceOrderEntry(order, null);
         state.orders.unshift(order);
       });
+      toUpdate.forEach(({ previous, next }) => {
+        const index = state.orders.findIndex((x) => x.id === previous.id);
+        if (index >= 0) {
+          next.financeEntryId = upsertFinanceOrderEntry(next, previous);
+          state.orders[index] = next;
+        }
+      });
       saveState();
 
-      await Promise.allSettled(toInsert.map((order) => (USE_FIREBASE_ORDERS && db)
+      await Promise.allSettled([...toInsert, ...toUpdate.map(({ next }) => next)].map((order) => (USE_FIREBASE_ORDERS && db)
         ? setDoc(doc(db, "orders", order.id), order, { merge: true })
         : Promise.resolve()));
       salvarFinanceiroNoBanco().catch((e) => console.warn("Falha ao salvar financeiro no Firebase:", e));
@@ -3461,7 +3549,7 @@
       renderOrders();
       renderDashboard();
       renderFinance();
-      alert(`${toInsert.length} pedido(s) importado(s) com sucesso.`);
+      alert(`${toInsert.length} pedido(s) importado(s), ${toUpdate.length} atualizado(s) e ${ignored} ignorado(s).`);
     } catch (error) {
       alert(`Falha ao importar planilha: ${error?.message || error}`);
     }
@@ -3498,7 +3586,7 @@
     const valorLiquido = autoFinance.valorLiquido;
     const lucro = autoFinance.lucro;
     const dataEntrega = addDaysToDate(dataPedido, 30);
-    const order = {
+    let order = {
       id: editingOrderId || (crypto?.randomUUID?.() || String(Date.now()+Math.random())),
       orderNumber: orderForm.numeroPedido.value.trim() || prev?.orderNumber || newOrderNumber(),
       clienteNome: orderForm.clienteNome.value.trim(), telefone: orderForm.telefone.value.trim(), canal: orderForm.canal.value, observacoes: orderForm.obs.value.trim(),
@@ -3519,12 +3607,33 @@
       financeEntryId: prev?.financeEntryId || null,
       createdAt: prev?.createdAt || now, updatedAt: now
     };
+
+    const duplicatedOrder = (state.orders || []).find((x) => (
+      normalizeOrderNumberKey(x.orderNumber) &&
+      normalizeOrderNumberKey(x.orderNumber) === normalizeOrderNumberKey(order.orderNumber) &&
+      x.id !== order.id
+    ));
+    const baseOrder = duplicatedOrder || prev;
+    if (duplicatedOrder) {
+      order = {
+        ...order,
+        id: duplicatedOrder.id,
+        createdAt: duplicatedOrder.createdAt || order.createdAt,
+        inventoryDebitedAt: duplicatedOrder.inventoryDebitedAt || null,
+        financeEntryId: duplicatedOrder.financeEntryId || null,
+      };
+      if (!hasOrderMeaningfulChanges(duplicatedOrder, order)) {
+        alert(`Pedido ${order.orderNumber} já existe e não possui alterações. Registro ignorado.`);
+        return;
+      }
+    }
     try {
-      await debitInventoryForOrderProduction(order, prev?.status);
-      createProductionOrderIfNeeded(order, prev?.status);
-      if (editingOrderId) { const i=state.orders.findIndex((x)=>x.id===editingOrderId); if(i>=0) state.orders[i]=order; }
+      await debitInventoryForOrderProduction(order, baseOrder?.status);
+      createProductionOrderIfNeeded(order, baseOrder?.status);
+      const targetId = duplicatedOrder ? duplicatedOrder.id : editingOrderId;
+      if (targetId) { const i=state.orders.findIndex((x)=>x.id===targetId); if(i>=0) state.orders[i]=order; }
       else state.orders.unshift(order);
-      order.financeEntryId = upsertFinanceOrderEntry(order, prev);
+      order.financeEntryId = upsertFinanceOrderEntry(order, baseOrder);
     } catch (err) {
       alert(err?.message || "Não foi possível debitar o estoque automaticamente.");
       return;
