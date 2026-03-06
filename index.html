@@ -2930,7 +2930,10 @@
         } else {
           it.productId = el.value;
           it.manualProduct = false;
-          if (el.value) it.nomeProduto = "";
+          if (el.value) {
+            it.nomeProduto = "";
+            it.sku = "";
+          }
         }
       } else {
         it[el.dataset.field]=el.value;
@@ -3409,7 +3412,7 @@
     if (orderForm.dataPedido.value) orderForm.dataEntrega.value = addDaysToDate(orderForm.dataPedido.value, 30);
     orderForm.status.innerHTML = ORDER_STATUS.map((s)=>`<option value="${s.value}">${s.icon} ${s.value}</option>`).join("");
     orderForm.status.value=o.status||'A ENVIAR';
-    orderItemsDraft=(o.itens||[]).map((it)=>({ ...it, manualProduct: !it.productId && !!String(it.nomeProduto || '').trim(), id: crypto?.randomUUID?.() || String(Date.now()+Math.random()) }));
+    orderItemsDraft=(o.itens||[]).map((it)=>({ ...it, manualProduct: !it.productId && !!(String(it.nomeProduto || '').trim() || String(it.sku || '').trim()), id: crypto?.randomUUID?.() || String(Date.now()+Math.random()) }));
     recalcOrderDraft();
     syncOrderAutoFields();
     openOrderFormCard();
