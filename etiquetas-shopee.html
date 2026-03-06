@@ -1505,8 +1505,8 @@
             const finalTop = Math.max(cropTop, cropBottom + 1);
             const cropRight = Math.max(1, srcW - PACKING_SHIFT_LEFT);
             const crop = {
-              left: 0,
-              right: srcW / 2,
+              left: srcW / 2,
+              right: cropRight,
               top: finalTop,
               bottom: cropBottom,
             };
