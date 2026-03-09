@@ -3338,30 +3338,26 @@
 
     const periodo = `${orderDateFilter.inicio?.value || "—"} até ${orderDateFilter.fim?.value || "—"}`;
     const filtroRapido = orderQuickFilters.find((btn) => btn.dataset.orderChip === activeOrderQuickFilter)?.textContent?.trim() || "Todos";
-    const body = rows.map((o) => {
-      const items = (o.itens || []).map((it) => {
-        const produto = findProductByOrderItem(it);
-        const nome = produto?.nome || it.nomeProduto || "Produto";
-        const sku = produto?.sku || it.sku || "—";
-        const qtd = n(it.quantidade) ?? 0;
-        return `<tr><td>${nome}</td><td>${sku}</td><td style="text-align:right">${fmtNum(qtd, 0)}</td></tr>`;
-      }).join("") || '<tr><td colspan="3">Sem itens cadastrados.</td></tr>';
+    const separacaoRows = rows
+      .map((o) => {
+        const sale = resolveSaleData(o);
+        return {
+          sku: String(sale.sku || "—").trim() || "—",
+          unidades: n(sale.unidades) ?? 0,
+          plataforma: sale.plataforma || "—",
+          vendedor: sale.vendedor || "—"
+        };
+      })
+      .sort((a, b) => a.sku.localeCompare(b.sku, "pt-BR", { sensitivity: "base" }));
 
-      return `
-        <div class="order-block">
-          <div class="order-head">
-            <strong>${o.orderNumber || "—"}</strong>
-            <span>${o.clienteNome || "—"}</span>
-            <span>Canal: ${o.canal || "—"}</span>
-            <span>Prazo: ${o.dataEntrega || o.dataPedido || "—"}</span>
-          </div>
-          <table>
-            <thead><tr><th>Produto</th><th>SKU</th><th style="text-align:right">Qtd.</th></tr></thead>
-            <tbody>${items}</tbody>
-          </table>
-        </div>
-      `;
-    }).join("");
+    const body = separacaoRows.map((item) => `
+      <tr>
+        <td>${item.sku}</td>
+        <td style="text-align:right">${fmtNum(item.unidades, 0)}</td>
+        <td>${item.plataforma}</td>
+        <td>${item.vendedor}</td>
+      </tr>
+    `).join("");
 
     const win = window.open("", "_blank");
     if (!win) return alert("Permita pop-ups para imprimir a lista de separação.");
@@ -3369,15 +3365,16 @@
       body{font-family:Arial,sans-serif;padding:20px;color:#111827}
       h1{margin:0 0 8px;font-size:22px}
       .meta{font-size:12px;color:#4b5563;margin-bottom:14px}
-      .order-block{border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;margin-bottom:10px;break-inside:avoid}
-      .order-head{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;font-size:12px;margin-bottom:8px}
       table{width:100%;border-collapse:collapse}
-      th,td{border:1px solid #e5e7eb;padding:6px 8px;font-size:12px;text-align:left}
+      th,td{border:1px solid #e5e7eb;padding:7px 8px;font-size:12px;text-align:left}
       th{background:#f3f4f6}
     </style></head><body>
       <h1>Lista de Separação de Pedidos</h1>
       <div class="meta">Filtro rápido: <strong>${filtroRapido}</strong> · Período: <strong>${periodo}</strong> · Total de pedidos: <strong>${rows.length}</strong></div>
-      ${body}
+      <table>
+        <thead><tr><th>SKU</th><th style="text-align:right">Unidades</th><th>Plataforma</th><th>Vendedor</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
     </body></html>`);
     win.document.close();
     win.focus();
