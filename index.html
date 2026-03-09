@@ -566,7 +566,8 @@
       <div class="card hide" id="prodFormCard">
         <h2>Criar / Editar Produto</h2>
         <div class="row"><label>Nome do produto*</label><input id="prod_nome" type="text" /></div>
-        <div class="row"><label>SKU único*</label><input id="prod_sku" type="text" /></div>
+        <div class="row"><label>SKU principal*</label><input id="prod_sku" type="text" /></div>
+        <div class="row" style="grid-template-columns:1fr;"><label>SKUs adicionais (opcional)</label><textarea id="prod_skus" rows="2" placeholder="Ex.: MDF-001-A, MDF-001-B"></textarea></div>
         <div class="row"><label>Categoria*</label><input id="prod_categoria" type="text" placeholder="Festa, Brinquedo..." /></div>
         <div class="row"><label>Madeira*</label><select id="prod_wood"></select></div>
         <div class="row"><label>Espessura</label><input id="prod_espessura" type="text" placeholder="Ex.: 6mm" /></div>
@@ -1784,6 +1785,7 @@
   const produtoForm = {
     nome: document.getElementById("prod_nome"),
     sku: document.getElementById("prod_sku"),
+    skus: document.getElementById("prod_skus"),
     categoria: document.getElementById("prod_categoria"),
     wood: document.getElementById("prod_wood"),
     espessura: document.getElementById("prod_espessura"),
@@ -1876,6 +1878,29 @@
   function fmtDT(iso) {
     try { return new Date(iso).toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short"}); }
     catch(e){ return iso || "—"; }
+  }
+
+
+
+  function parseProductSkuAliases(value = "") {
+    const tokens = String(value || "")
+      .split(/[\n,;]+/g)
+      .map((sku) => sku.trim())
+      .filter(Boolean);
+    return [...new Set(tokens)];
+  }
+
+  function extractProductSkus(product = {}) {
+    const mainSku = String(product?.sku || "").trim();
+    const aliases = Array.isArray(product?.skuAliases) ? product.skuAliases : [];
+    const all = [mainSku, ...aliases.map((sku) => String(sku || "").trim())].filter(Boolean);
+    return [...new Set(all)];
+  }
+
+  function productHasSku(product = {}, sku = "") {
+    const normalizedSku = String(sku || "").trim().toLowerCase();
+    if (!normalizedSku) return false;
+    return extractProductSkus(product).some((itemSku) => itemSku.toLowerCase() === normalizedSku);
   }
 
   function normalizeExternalLink(value) {
@@ -1971,6 +1996,7 @@
     return {
       nome: produtoForm.nome.value.trim(),
       sku: produtoForm.sku.value.trim(),
+      skuAliases: parseProductSkuAliases(produtoForm.skus.value),
       categoria: produtoForm.categoria.value.trim(),
       woodId: isManual ? null : produtoForm.wood.value,
       madeira: isManual ? null : (w.name || null),
@@ -2021,7 +2047,8 @@
     const status = prodStatusFilter?.value || "todos";
     return (state.products || []).filter((p) => {
       const statusMatch = status === "todos" || (status === "ativos" ? !!p.ativo : !p.ativo);
-      const nameMatch = !term || [p.nome, p.sku, p.categoria].some((field) => String(field || "").toLowerCase().includes(term));
+      const skusText = extractProductSkus(p).join(" ");
+      const nameMatch = !term || [p.nome, skusText, p.categoria].some((field) => String(field || "").toLowerCase().includes(term));
       return statusMatch && nameMatch;
     });
   }
@@ -2048,7 +2075,7 @@
       if (p.linkDesenho) links.push(`<a class="prod-link-btn" href="${p.linkDesenho}" target="_blank" rel="noopener noreferrer">Desenho</a>`);
       tr.innerHTML = `
         <td><strong>${p.nome ?? "—"}</strong></td>
-        <td>${p.sku ?? "—"}</td>
+        <td>${extractProductSkus(p).join(", ") || "—"}</td>
         <td class="right">${fmtBRL(p.custoTotal ?? 0)}</td>
         <td class="right">${fmtBRL(p.precoSugerido ?? 0)}</td>
         <td class="right prod-profit">${fmtBRL(p.lucro ?? 0)}</td>
@@ -2118,6 +2145,7 @@
     editingProductId = id;
     produtoForm.nome.value = p.nome || "";
     produtoForm.sku.value = p.sku || "";
+    produtoForm.skus.value = Array.isArray(p.skuAliases) ? p.skuAliases.join(", ") : "";
     produtoForm.categoria.value = p.categoria || "";
     produtoForm.wood.value = p.woodId || p.madeira || "";
     produtoForm.espessura.value = p.espessura || "";
@@ -2157,11 +2185,12 @@
   function duplicarProduto(id) {
     const p = state.products.find((x) => x.id === id);
     if (!p) return;
-    const novo = { ...structuredClone(p), id: null, sku: `${p.sku || "SKU"}-COPY`, nome: `${p.nome || "Produto"} (Cópia)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const novo = { ...structuredClone(p), id: null, sku: `${p.sku || "SKU"}-COPY`, skuAliases: (p.skuAliases || []).map((sku) => `${sku}-COPY`), nome: `${p.nome || "Produto"} (Cópia)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     editingProductId = null;
     loadProductInForm(id);
     produtoForm.nome.value = novo.nome;
     produtoForm.sku.value = novo.sku;
+    produtoForm.skus.value = (novo.skuAliases || []).join(", ");
   }
 
   // ====== ESTOQUE ======
@@ -2524,10 +2553,16 @@
   document.getElementById("btnSalvarProdutoModulo").addEventListener("click", async () => {
     const calc = computeProdutoFromForm();
     lastProductCalc = calc;
-    if (!calc.nome || !calc.sku || !calc.categoria) return alert("Campos obrigatórios: nome, SKU e categoria.");
+    if (!calc.nome || !calc.sku || !calc.categoria) return alert("Campos obrigatórios: nome, SKU principal e categoria.");
     if (calc.modoCadastro !== "manual" && !calc.woodId) return alert("Selecione a madeira para precificação automática.");
     if (calc.modoCadastro === "manual" && calc.custoTotal <= 0) return alert("Informe o custo manual do produto.");
-    if (state.products.some((p) => p.sku === calc.sku && p.id !== editingProductId)) return alert("SKU já cadastrado. Use um SKU único.");
+
+    const allSkus = [...new Set([calc.sku, ...(calc.skuAliases || [])].map((sku) => String(sku || "").trim()).filter(Boolean))];
+    if (!allSkus.length) return alert("Informe ao menos um SKU.");
+    const duplicatedInForm = allSkus.length !== new Set(allSkus.map((sku) => sku.toLowerCase())).size;
+    if (duplicatedInForm) return alert("Há SKUs duplicados no próprio cadastro. Revise o SKU principal e os adicionais.");
+    const conflictingSku = (state.products || []).find((p) => p.id !== editingProductId && allSkus.some((sku) => productHasSku(p, sku)));
+    if (conflictingSku) return alert(`SKU já cadastrado no produto ${conflictingSku.nome || conflictingSku.sku}. Use SKUs únicos.`);
 
     const now = new Date().toISOString();
     const payload = { ...calc, createdAt: editingProductId ? (state.products.find(p=>p.id===editingProductId)?.createdAt || now) : now, updatedAt: now };
@@ -2848,7 +2883,7 @@
     const nome = String(item.nomeProduto || "").trim().toLowerCase();
     return (state.products || []).find((p) => {
       if (item.productId && p.id === item.productId) return true;
-      if (sku && String(p.sku || "").trim().toLowerCase() === sku) return true;
+      if (sku && productHasSku(p, sku)) return true;
       if (nome && String(p.nome || "").trim().toLowerCase() === nome) return true;
       return false;
     });
@@ -2866,6 +2901,7 @@
         productId: product?.id || it.productId || null,
         nomeProduto: product?.nome || it.nomeProduto || "",
         sku: product?.sku || it.sku || "",
+        skuAliases: product?.skuAliases || it.skuAliases || [],
         quantidade,
         precoUnit,
         custoUnit,
@@ -2897,7 +2933,7 @@
       const custoUnit = n(p?.custoTotal) ?? 0;
       const lucroUnit = precoUnit - custoUnit;
       const isManualProduct = !!it.manualProduct || (!it.productId && (String(it.nomeProduto || "").trim() || String(it.sku || "").trim()));
-      return { ...it, nomeProduto: p?.nome || (isManualProduct ? it.nomeProduto : ""), sku: p?.sku || (isManualProduct ? it.sku : ""), quantidade: qtd, precoUnit, custoUnit, lucroUnit, subtotal: precoUnit * qtd, tempos: { corte: n(p?.tempos?.corte) ?? 0, montagem: n(p?.tempos?.montagem) ?? 0 } };
+      return { ...it, nomeProduto: p?.nome || (isManualProduct ? it.nomeProduto : ""), sku: p?.sku || (isManualProduct ? it.sku : ""), skuAliases: p?.skuAliases || (isManualProduct ? it.skuAliases : []), quantidade: qtd, precoUnit, custoUnit, lucroUnit, subtotal: precoUnit * qtd, tempos: { corte: n(p?.tempos?.corte) ?? 0, montagem: n(p?.tempos?.montagem) ?? 0 } };
     });
     renderOrderItems();
     renderOrderSummary();
@@ -3001,7 +3037,7 @@
   function getSkuProductCost(sku = "") {
     const normalizedSku = String(sku || "").trim().toLowerCase();
     if (!normalizedSku) return null;
-    const product = (state.products || []).find((p) => String(p.sku || "").trim().toLowerCase() === normalizedSku);
+    const product = (state.products || []).find((p) => productHasSku(p, normalizedSku));
     return n(product?.custoTotal) ?? null;
   }
 
