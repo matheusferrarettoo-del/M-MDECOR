@@ -3452,11 +3452,12 @@
     const skuLookup = buildProductSkuLookup(state.products || []);
     const productById = new Map((state.products || []).map((product) => [product.id, product]));
     const buildParentLabelFromProduct = (product = null) => {
-      if (!product) return "Produto sem pai";
+      if (!product) return "Sem produto pai";
       const parentName = String(product.parentProductName || "").trim();
       if (parentName) return parentName;
       const parent = product.parentProductId ? productById.get(product.parentProductId) : null;
-      return String(parent?.nome || product.nome || product.sku || "Produto sem pai").trim() || "Produto sem pai";
+      const category = String(product.categoria || "").trim();
+      return String(parent?.nome || category || "Sem produto pai").trim() || "Sem produto pai";
     };
 
     const separacaoRows = rows
@@ -3477,15 +3478,28 @@
       .sort((a, b) => a.sku.localeCompare(b.sku, "pt-BR", { sensitivity: "base" }));
 
     const resumoPorSkuMap = separacaoRows.reduce((acc, item) => {
-      const key = item.parentProductName || "Produto sem pai";
-      const current = acc.get(key) || 0;
-      acc.set(key, current + (n(item.unidades) ?? 0));
+      const parentKey = item.parentProductName || "Sem produto pai";
+      const skuKey = item.summarySku || item.sku || "—";
+      const composedKey = `${parentKey}|||${skuKey}`;
+      const current = acc.get(composedKey) || { parentProductName: parentKey, sku: skuKey, unidades: 0 };
+      current.unidades += n(item.unidades) ?? 0;
+      acc.set(composedKey, current);
       return acc;
     }, new Map());
 
-    const resumoPorSkuRows = Array.from(resumoPorSkuMap.entries())
-      .map(([parentProductName, unidades]) => ({ parentProductName, unidades }))
-      .sort((a, b) => a.parentProductName.localeCompare(b.parentProductName, "pt-BR", { sensitivity: "base" }));
+    const resumoPorSkuRows = Array.from(resumoPorSkuMap.values())
+      .sort((a, b) => {
+        const parentCompare = a.parentProductName.localeCompare(b.parentProductName, "pt-BR", { sensitivity: "base" });
+        if (parentCompare !== 0) return parentCompare;
+        return a.sku.localeCompare(b.sku, "pt-BR", { sensitivity: "base" });
+      });
+
+    const resumoPorCategoria = resumoPorSkuRows.reduce((acc, item) => {
+      const current = acc.get(item.parentProductName) || [];
+      current.push(item);
+      acc.set(item.parentProductName, current);
+      return acc;
+    }, new Map());
 
     const totalUnidadesResumo = resumoPorSkuRows.reduce((acc, item) => acc + (n(item.unidades) ?? 0), 0);
 
@@ -3498,12 +3512,18 @@
       </tr>
     `).join("");
 
-    const summaryBody = resumoPorSkuRows.map((item) => `
-      <tr>
-        <td>${item.parentProductName}</td>
-        <td style="text-align:right">${fmtNum(item.unidades, 0)}</td>
-      </tr>
-    `).join("");
+    const summaryBody = Array.from(resumoPorCategoria.entries()).map(([parentProductName, items]) => {
+      const rows = items.map((item) => `
+        <tr>
+          <td>${item.sku}</td>
+          <td style="text-align:right">${fmtNum(item.unidades, 0)}</td>
+        </tr>
+      `).join("");
+      return `
+        <tr class="group-header"><td colspan="2">PRODUTO PAI = ${parentProductName.toUpperCase()}</td></tr>
+        ${rows}
+      `;
+    }).join("");
 
     const win = window.open("", "_blank");
     if (!win) return alert("Permita pop-ups para imprimir a lista de separação.");
@@ -3515,6 +3535,7 @@
       table{width:100%;border-collapse:collapse}
       th,td{border:1px solid #e5e7eb;padding:7px 8px;font-size:12px;text-align:left}
       th{background:#f3f4f6}
+      .group-header td{background:#f9fafb;font-weight:700;text-align:center}
       .page-break{break-before:page;page-break-before:always;margin-top:20px}
     </style></head><body>
       <h1>Lista de Separação de Pedidos</h1>
@@ -3525,10 +3546,10 @@
       </table>
 
       <div class="page-break">
-        <h2>Resumo por Produto Pai</h2>
-        <div class="meta">Total de produtos pai: <strong>${resumoPorSkuRows.length}</strong> · Total de unidades: <strong>${fmtNum(totalUnidadesResumo, 0)}</strong></div>
+        <h2>Resumo por SKU</h2>
+        <div class="meta">Total de categorias: <strong>${resumoPorCategoria.size}</strong> · Total de SKUs: <strong>${resumoPorSkuRows.length}</strong> · Total de unidades: <strong>${fmtNum(totalUnidadesResumo, 0)}</strong></div>
         <table>
-          <thead><tr><th>Produto pai</th><th style="text-align:right">Total de unidades</th></tr></thead>
+          <thead><tr><th>SKU</th><th style="text-align:right">Total de unidades</th></tr></thead>
           <tbody>${summaryBody}</tbody>
         </table>
       </div>
