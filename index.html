@@ -3386,6 +3386,19 @@
       })
       .sort((a, b) => a.sku.localeCompare(b.sku, "pt-BR", { sensitivity: "base" }));
 
+    const resumoPorSkuMap = separacaoRows.reduce((acc, item) => {
+      const key = item.sku;
+      const current = acc.get(key) || 0;
+      acc.set(key, current + (n(item.unidades) ?? 0));
+      return acc;
+    }, new Map());
+
+    const resumoPorSkuRows = Array.from(resumoPorSkuMap.entries())
+      .map(([sku, unidades]) => ({ sku, unidades }))
+      .sort((a, b) => a.sku.localeCompare(b.sku, "pt-BR", { sensitivity: "base" }));
+
+    const totalUnidadesResumo = resumoPorSkuRows.reduce((acc, item) => acc + (n(item.unidades) ?? 0), 0);
+
     const body = separacaoRows.map((item) => `
       <tr>
         <td>${item.sku}</td>
@@ -3395,15 +3408,24 @@
       </tr>
     `).join("");
 
+    const summaryBody = resumoPorSkuRows.map((item) => `
+      <tr>
+        <td>${item.sku}</td>
+        <td style="text-align:right">${fmtNum(item.unidades, 0)}</td>
+      </tr>
+    `).join("");
+
     const win = window.open("", "_blank");
     if (!win) return alert("Permita pop-ups para imprimir a lista de separação.");
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"/><title>Lista de Separação</title><style>
       body{font-family:Arial,sans-serif;padding:20px;color:#111827}
       h1{margin:0 0 8px;font-size:22px}
+      h2{margin:0 0 8px;font-size:20px}
       .meta{font-size:12px;color:#4b5563;margin-bottom:14px}
       table{width:100%;border-collapse:collapse}
       th,td{border:1px solid #e5e7eb;padding:7px 8px;font-size:12px;text-align:left}
       th{background:#f3f4f6}
+      .page-break{break-before:page;page-break-before:always;margin-top:20px}
     </style></head><body>
       <h1>Lista de Separação de Pedidos</h1>
       <div class="meta">Filtro rápido: <strong>${filtroRapido}</strong> · Período: <strong>${periodo}</strong> · Total de pedidos: <strong>${rows.length}</strong></div>
@@ -3411,6 +3433,15 @@
         <thead><tr><th>SKU</th><th style="text-align:right">Unidades</th><th>Plataforma</th><th>Vendedor</th></tr></thead>
         <tbody>${body}</tbody>
       </table>
+
+      <div class="page-break">
+        <h2>Resumo por SKU</h2>
+        <div class="meta">Total de SKUs: <strong>${resumoPorSkuRows.length}</strong> · Total de unidades: <strong>${fmtNum(totalUnidadesResumo, 0)}</strong></div>
+        <table>
+          <thead><tr><th>SKU</th><th style="text-align:right">Total de unidades</th></tr></thead>
+          <tbody>${summaryBody}</tbody>
+        </table>
+      </div>
     </body></html>`);
     win.document.close();
     win.focus();
