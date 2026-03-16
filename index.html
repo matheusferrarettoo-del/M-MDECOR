@@ -568,6 +568,7 @@
         <div class="row"><label>Nome do produto*</label><input id="prod_nome" type="text" /></div>
         <div class="row"><label>SKU principal*</label><input id="prod_sku" type="text" /></div>
         <div class="row" style="grid-template-columns:1fr;"><label>SKUs adicionais (opcional)</label><textarea id="prod_skus" rows="2" placeholder="Ex.: MDF-001-A, MDF-001-B"></textarea></div>
+        <div class="row"><label>Produto pai (opcional)</label><select id="prod_parent"><option value="">Nenhum (produto raiz)</option></select></div>
         <div class="row"><label>Categoria*</label><input id="prod_categoria" type="text" placeholder="Festa, Brinquedo..." /></div>
         <div class="row"><label>Madeira*</label><select id="prod_wood"></select></div>
         <div class="row"><label>Espessura</label><input id="prod_espessura" type="text" placeholder="Ex.: 6mm" /></div>
@@ -1786,6 +1787,7 @@
     nome: document.getElementById("prod_nome"),
     sku: document.getElementById("prod_sku"),
     skus: document.getElementById("prod_skus"),
+    parentId: document.getElementById("prod_parent"),
     categoria: document.getElementById("prod_categoria"),
     wood: document.getElementById("prod_wood"),
     espessura: document.getElementById("prod_espessura"),
@@ -1940,6 +1942,33 @@
     renderProductWoodItems(getProductWoodItemsFromForm());
   }
 
+  function buildParentProductLabel(product = {}) {
+    const nome = String(product?.nome || "").trim();
+    const sku = String(product?.sku || "").trim();
+    if (nome && sku) return `${nome} (${sku})`;
+    return nome || sku || "Produto";
+  }
+
+  function fillProductParentSelect(selectedId = "") {
+    const select = produtoForm.parentId;
+    if (!select) return;
+    const currentEditingId = editingProductId || null;
+    const previousValue = selectedId || select.value || "";
+    select.innerHTML = '<option value="">Nenhum (produto raiz)</option>';
+
+    (state.products || [])
+      .filter((product) => product?.id && product.id !== currentEditingId)
+      .sort((a, b) => buildParentProductLabel(a).localeCompare(buildParentProductLabel(b), "pt-BR", { sensitivity: "base" }))
+      .forEach((product) => {
+        const option = document.createElement("option");
+        option.value = product.id;
+        option.textContent = buildParentProductLabel(product);
+        select.appendChild(option);
+      });
+
+    select.value = Array.from(select.options).some((opt) => opt.value === previousValue) ? previousValue : "";
+  }
+
   function showProdutoForm() {
     prodFormCard?.classList.remove("hide");
   }
@@ -1955,6 +1984,7 @@
     produtoForm.ativo.value = "true";
     produtoForm.modoCadastro.value = "auto";
     produtoForm.canal.value = "Shopee";
+    produtoForm.parentId.value = "";
     produtoForm.wood.value = state.woods[0]?.name || "";
     produtoForm.embalagem.value = state.params.embalagem ?? 0;
     produtoForm.margem.value = state.params.margemDesejada ?? 0;
@@ -1962,6 +1992,7 @@
     renderProductWoodItems([emptyWoodItem()]);
     lastProductCalc = null;
     toggleProductFormMode();
+    fillProductParentSelect("");
     if (!keepOpen) hideProdutoForm();
   }
 
@@ -2152,6 +2183,7 @@
     state.products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     state.orders = (state.orders || []).map((order) => syncOrderWithSavedProducts(order));
     renderProducts();
+    fillProductParentSelect(produtoForm.parentId?.value || "");
     resetOrderForm();
     renderOrders();
     renderHistorico();
@@ -2165,6 +2197,8 @@
     produtoForm.nome.value = p.nome || "";
     produtoForm.sku.value = p.sku || "";
     produtoForm.skus.value = Array.isArray(p.skuAliases) ? p.skuAliases.join(", ") : "";
+    fillProductParentSelect(p.parentProductId || "");
+    produtoForm.parentId.value = p.parentProductId || "";
     produtoForm.categoria.value = p.categoria || "";
     produtoForm.wood.value = p.woodId || p.madeira || "";
     produtoForm.espessura.value = p.espessura || "";
@@ -2583,8 +2617,17 @@
     const conflictingSku = (state.products || []).find((p) => p.id !== editingProductId && allSkus.some((sku) => productHasSku(p, sku)));
     if (conflictingSku) return alert(`SKU já cadastrado no produto ${conflictingSku.nome || conflictingSku.sku}. Use SKUs únicos.`);
 
+    const selectedParentId = String(produtoForm.parentId?.value || "").trim();
+    if (selectedParentId && selectedParentId === editingProductId) return alert("Um produto não pode ser pai de si mesmo.");
+
     const now = new Date().toISOString();
-    const payload = { ...calc, createdAt: editingProductId ? (state.products.find(p=>p.id===editingProductId)?.createdAt || now) : now, updatedAt: now };
+    const payload = {
+      ...calc,
+      parentProductId: selectedParentId || null,
+      parentProductName: selectedParentId ? (state.products.find((product) => product.id === selectedParentId)?.nome || "") : null,
+      createdAt: editingProductId ? (state.products.find(p=>p.id===editingProductId)?.createdAt || now) : now,
+      updatedAt: now
+    };
 
     if (editingProductId) {
       const i = state.products.findIndex((x) => x.id === editingProductId);
@@ -2618,6 +2661,7 @@
 
   document.getElementById("btnNovoProduto").addEventListener("click", () => {
     resetProdutoForm({ keepOpen: true });
+    fillProductParentSelect("");
     showProdutoForm();
   });
 
@@ -2635,6 +2679,8 @@
 
     produtoForm.nome.value = el.nome.value || lastCalc.nome || "";
     produtoForm.sku.value = el.sku.value || lastCalc.sku || "";
+    fillProductParentSelect("");
+    produtoForm.parentId.value = "";
     produtoForm.categoria.value = "";
     produtoForm.modoCadastro.value = "auto";
     produtoForm.wood.value = lastCalc.wood || "";
@@ -2921,6 +2967,8 @@
         nomeProduto: product?.nome || it.nomeProduto || "",
         sku: product?.sku || it.sku || "",
         skuAliases: product?.skuAliases || it.skuAliases || [],
+        parentProductId: product?.parentProductId || it.parentProductId || null,
+        parentProductName: product?.parentProductName || it.parentProductName || product?.nome || it.nomeProduto || "",
         quantidade,
         precoUnit,
         custoUnit,
@@ -2952,7 +3000,7 @@
       const custoUnit = n(p?.custoTotal) ?? 0;
       const lucroUnit = precoUnit - custoUnit;
       const isManualProduct = !!it.manualProduct || (!it.productId && (String(it.nomeProduto || "").trim() || String(it.sku || "").trim()));
-      return { ...it, nomeProduto: p?.nome || (isManualProduct ? it.nomeProduto : ""), sku: p?.sku || (isManualProduct ? it.sku : ""), skuAliases: p?.skuAliases || (isManualProduct ? it.skuAliases : []), quantidade: qtd, precoUnit, custoUnit, lucroUnit, subtotal: precoUnit * qtd, tempos: { corte: n(p?.tempos?.corte) ?? 0, montagem: n(p?.tempos?.montagem) ?? 0 } };
+      return { ...it, nomeProduto: p?.nome || (isManualProduct ? it.nomeProduto : ""), sku: p?.sku || (isManualProduct ? it.sku : ""), skuAliases: p?.skuAliases || (isManualProduct ? it.skuAliases : []), parentProductId: p?.parentProductId || (isManualProduct ? it.parentProductId : null), parentProductName: p?.parentProductName || p?.nome || (isManualProduct ? it.parentProductName : ""), quantidade: qtd, precoUnit, custoUnit, lucroUnit, subtotal: precoUnit * qtd, tempos: { corte: n(p?.tempos?.corte) ?? 0, montagem: n(p?.tempos?.montagem) ?? 0 } };
     });
     renderOrderItems();
     renderOrderSummary();
@@ -3402,14 +3450,25 @@
     const periodo = `${orderDateFilter.inicio?.value || "—"} até ${orderDateFilter.fim?.value || "—"}`;
     const filtroRapido = orderQuickFilters.find((btn) => btn.dataset.orderChip === activeOrderQuickFilter)?.textContent?.trim() || "Todos";
     const skuLookup = buildProductSkuLookup(state.products || []);
+    const productById = new Map((state.products || []).map((product) => [product.id, product]));
+    const buildParentLabelFromProduct = (product = null) => {
+      if (!product) return "Produto sem pai";
+      const parentName = String(product.parentProductName || "").trim();
+      if (parentName) return parentName;
+      const parent = product.parentProductId ? productById.get(product.parentProductId) : null;
+      return String(parent?.nome || product.nome || product.sku || "Produto sem pai").trim() || "Produto sem pai";
+    };
+
     const separacaoRows = rows
       .map((o) => {
         const sale = resolveSaleData(o);
         const rawSku = String(sale.sku || "—").trim() || "—";
         const skuRef = skuLookup.get(rawSku.toLowerCase());
+        const matchedProduct = skuRef?.productId ? productById.get(skuRef.productId) : null;
         return {
           sku: rawSku,
           summarySku: skuRef?.canonicalSku || rawSku,
+          parentProductName: buildParentLabelFromProduct(matchedProduct),
           unidades: n(sale.unidades) ?? 0,
           plataforma: sale.plataforma || "—",
           vendedor: sale.vendedor || "—"
@@ -3418,15 +3477,15 @@
       .sort((a, b) => a.sku.localeCompare(b.sku, "pt-BR", { sensitivity: "base" }));
 
     const resumoPorSkuMap = separacaoRows.reduce((acc, item) => {
-      const key = item.summarySku;
+      const key = item.parentProductName || "Produto sem pai";
       const current = acc.get(key) || 0;
       acc.set(key, current + (n(item.unidades) ?? 0));
       return acc;
     }, new Map());
 
     const resumoPorSkuRows = Array.from(resumoPorSkuMap.entries())
-      .map(([sku, unidades]) => ({ sku, unidades }))
-      .sort((a, b) => a.sku.localeCompare(b.sku, "pt-BR", { sensitivity: "base" }));
+      .map(([parentProductName, unidades]) => ({ parentProductName, unidades }))
+      .sort((a, b) => a.parentProductName.localeCompare(b.parentProductName, "pt-BR", { sensitivity: "base" }));
 
     const totalUnidadesResumo = resumoPorSkuRows.reduce((acc, item) => acc + (n(item.unidades) ?? 0), 0);
 
@@ -3441,7 +3500,7 @@
 
     const summaryBody = resumoPorSkuRows.map((item) => `
       <tr>
-        <td>${item.sku}</td>
+        <td>${item.parentProductName}</td>
         <td style="text-align:right">${fmtNum(item.unidades, 0)}</td>
       </tr>
     `).join("");
@@ -3466,10 +3525,10 @@
       </table>
 
       <div class="page-break">
-        <h2>Resumo por SKU</h2>
-        <div class="meta">Total de SKUs: <strong>${resumoPorSkuRows.length}</strong> · Total de unidades: <strong>${fmtNum(totalUnidadesResumo, 0)}</strong></div>
+        <h2>Resumo por Produto Pai</h2>
+        <div class="meta">Total de produtos pai: <strong>${resumoPorSkuRows.length}</strong> · Total de unidades: <strong>${fmtNum(totalUnidadesResumo, 0)}</strong></div>
         <table>
-          <thead><tr><th>SKU</th><th style="text-align:right">Total de unidades</th></tr></thead>
+          <thead><tr><th>Produto pai</th><th style="text-align:right">Total de unidades</th></tr></thead>
           <tbody>${summaryBody}</tbody>
         </table>
       </div>
