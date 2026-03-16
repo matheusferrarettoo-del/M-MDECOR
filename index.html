@@ -1903,6 +1903,25 @@
     return extractProductSkus(product).some((itemSku) => itemSku.toLowerCase() === normalizedSku);
   }
 
+  function buildProductSkuLookup(products = []) {
+    const skuLookup = new Map();
+    (Array.isArray(products) ? products : []).forEach((product) => {
+      const allSkus = extractProductSkus(product);
+      if (!allSkus.length) return;
+      const canonicalSku = String(product?.sku || allSkus[0] || "").trim() || "—";
+      const ref = {
+        productId: product?.id || canonicalSku,
+        canonicalSku
+      };
+      allSkus.forEach((sku) => {
+        const normalizedSku = String(sku || "").trim().toLowerCase();
+        if (!normalizedSku || skuLookup.has(normalizedSku)) return;
+        skuLookup.set(normalizedSku, ref);
+      });
+    });
+    return skuLookup;
+  }
+
   function normalizeExternalLink(value) {
     const raw = String(value || "").trim();
     if (!raw) return null;
@@ -3365,7 +3384,15 @@
     setText("ordersPendingCount", String(pendingCount));
   }
 
-  function printPickingList() {
+  async function printPickingList() {
+    if (USE_FIREBASE_PRODUCTS && db) {
+      try {
+        await carregarProdutosDoBanco();
+      } catch (e) {
+        console.warn("Falha ao atualizar produtos para resumo por SKU:", e);
+      }
+    }
+
     const rows = getFilteredOrders();
     if (!rows.length) {
       alert("Nenhum pedido encontrado com os filtros atuais para impressão.");
@@ -3374,11 +3401,15 @@
 
     const periodo = `${orderDateFilter.inicio?.value || "—"} até ${orderDateFilter.fim?.value || "—"}`;
     const filtroRapido = orderQuickFilters.find((btn) => btn.dataset.orderChip === activeOrderQuickFilter)?.textContent?.trim() || "Todos";
+    const skuLookup = buildProductSkuLookup(state.products || []);
     const separacaoRows = rows
       .map((o) => {
         const sale = resolveSaleData(o);
+        const rawSku = String(sale.sku || "—").trim() || "—";
+        const skuRef = skuLookup.get(rawSku.toLowerCase());
         return {
-          sku: String(sale.sku || "—").trim() || "—",
+          sku: rawSku,
+          summarySku: skuRef?.canonicalSku || rawSku,
           unidades: n(sale.unidades) ?? 0,
           plataforma: sale.plataforma || "—",
           vendedor: sale.vendedor || "—"
@@ -3387,7 +3418,7 @@
       .sort((a, b) => a.sku.localeCompare(b.sku, "pt-BR", { sensitivity: "base" }));
 
     const resumoPorSkuMap = separacaoRows.reduce((acc, item) => {
-      const key = item.sku;
+      const key = item.summarySku;
       const current = acc.get(key) || 0;
       acc.set(key, current + (n(item.unidades) ?? 0));
       return acc;
