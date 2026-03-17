@@ -2901,6 +2901,83 @@
     };
   }
 
+  function aggregateImportedOrdersByNumber(importedOrders = []) {
+    const aggregatedByOrder = new Map();
+
+    importedOrders.forEach((order) => {
+      const key = normalizeOrderNumberKey(order.orderNumber) || `__SEM_NUMERO__${order.id}`;
+      const current = aggregatedByOrder.get(key);
+
+      if (!current) {
+        aggregatedByOrder.set(key, {
+          ...order,
+          skuVenda: String(order.skuVenda || "").trim(),
+          itens: [
+            {
+              sku: String(order.skuVenda || "").trim(),
+              unidades: Math.max(1, Math.round(n(order.unidades) ?? 1)),
+              valorVenda: n(order.valorVenda) ?? 0,
+              custoProduto: n(order.custoProduto) ?? 0,
+              lucro: n(order.lucro) ?? 0,
+            },
+          ],
+        });
+        return;
+      }
+
+      const itemSku = String(order.skuVenda || "").trim();
+      const skuSet = new Set(
+        [
+          ...String(current.skuVenda || "")
+            .split(",")
+            .map((sku) => sku.trim())
+            .filter(Boolean),
+          itemSku,
+        ].filter(Boolean)
+      );
+
+      const unidadesSomadas = (n(current.unidades) ?? 0) + (n(order.unidades) ?? 0);
+      const valorVendaSomado = (n(current.valorVenda) ?? 0) + (n(order.valorVenda) ?? 0);
+      const custoPlataformaSomado = (n(current.custoPlataformaValor) ?? 0) + (n(order.custoPlataformaValor) ?? 0);
+      const valorLiquidoSomado = (n(current.valorLiquido) ?? 0) + (n(order.valorLiquido) ?? 0);
+      const custoProdutoSomado = (n(current.custoProduto) ?? 0) + (n(order.custoProduto) ?? 0);
+      const lucroSomado = (n(current.lucro) ?? 0) + (n(order.lucro) ?? 0);
+
+      aggregatedByOrder.set(key, {
+        ...current,
+        skuVenda: Array.from(skuSet).join(", "),
+        unidades: unidadesSomadas,
+        valorVenda: valorVendaSomado,
+        custoPlataformaValor: custoPlataformaSomado,
+        valorLiquido: valorLiquidoSomado,
+        custoProduto: custoProdutoSomado,
+        lucro: lucroSomado,
+        valorTotal: valorVendaSomado,
+        custoTotal: custoProdutoSomado,
+        lucroTotal: lucroSomado,
+        itens: [
+          ...(Array.isArray(current.itens) ? current.itens : []),
+          {
+            sku: itemSku,
+            unidades: Math.max(1, Math.round(n(order.unidades) ?? 1)),
+            valorVenda: n(order.valorVenda) ?? 0,
+            custoProduto: n(order.custoProduto) ?? 0,
+            lucro: n(order.lucro) ?? 0,
+          },
+        ],
+        updatedAt: new Date().toISOString(),
+      });
+    });
+
+    return Array.from(aggregatedByOrder.values()).map((order) => {
+      if ((order.itens || []).length <= 1) return order;
+      return {
+        ...order,
+        observacoes: `${order.observacoes} ${order.itens.length} item(ns) somados pela importação.`.trim(),
+      };
+    });
+  }
+
   function startOfWeekDate(date = new Date()) {
     const clone = new Date(date);
     const day = clone.getDay();
@@ -3684,17 +3761,14 @@
       const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
       if (!rows.length) return alert("A planilha está vazia.");
 
-      const importedOrders = rows.map((row) => parseImportedOrderRow(row));
+      const importedOrders = aggregateImportedOrdersByNumber(rows.map((row) => parseImportedOrderRow(row)));
       const ordersByNumber = new Map((state.orders || []).map((o) => [normalizeOrderNumberKey(o.orderNumber), o]));
-      const processedOrderNumbers = new Set();
       const toInsert = [];
       const toUpdate = [];
       let ignored = 0;
 
       importedOrders.forEach((importedOrder) => {
         const key = normalizeOrderNumberKey(importedOrder.orderNumber);
-        if (key && processedOrderNumbers.has(key)) return;
-        if (key) processedOrderNumbers.add(key);
         const existing = key ? ordersByNumber.get(key) : null;
         if (!existing) {
           toInsert.push(importedOrder);
